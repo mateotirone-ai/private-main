@@ -11,8 +11,34 @@ export function serviceOrderTotal(
 }
 
 export interface CustomerRequest {
+  hostId: string;
+  trade: string;
   businessId: string;
   good: string;
   qty: number;
   createdTick: number;
+}
+
+export interface ServiceHost {
+  id: string;
+  trade: string;
+}
+
+export function createCustomerRequest(
+  host: ServiceHost,
+  good: string,
+  qty: number,
+  createdTick: number
+): CustomerRequest {
+  if (!Number.isInteger(qty) || qty <= 0) {
+    throw new Error("invalid customer need quantity");
+  }
+  return {
+    hostId: host.id,
+    trade: host.trade,
+    businessId: `cpu_${host.trade}`,
+    good,
+    qty,
+    createdTick,
+  };
 }

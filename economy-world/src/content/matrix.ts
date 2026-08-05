@@ -9,22 +9,21 @@ export interface Matrix {
   stipend: number;
   medical: { flat: number; pctOfWealth: number };
   freelanceRate: number;
-  wagePerHourByTier: Record<string, number>;
   bank: { transferFee: number };
   cash: { denominations: number[]; walletDefaultExtract: number };
   ui: {
     toast: {
-      maxTitleChars: number;
-      maxSubtitleChars: number;
+      maxChars: number;
       fadeInTicks: number;
       stayTicks: number;
       fadeOutTicks: number;
     };
   };
   work: {
-    zoneRadius: number;
+    nodeStampOffsets: Array<{ x: number; y: number; z: number }>;
     nodeStages: { depletedTicks: number; recoveringTicks: number };
     processingSweepTicks: number;
+    processingTicksPerSecond: number;
     processing: Record<
       string,
       { inputTrade: string; inputQty: number; outputQty: number; durationTicks: number }
@@ -34,7 +33,8 @@ export interface Matrix {
       cpuMultiplier: number;
       offlineOwnerMultiplier: number;
       activeOwnerMultiplier: number;
-      ticksPerHour: number;
+      toolQualityByTier: Record<string, number>;
+      pieceRateByTradeTier: Record<string, Record<string, number>>;
     };
   };
   dealer: {

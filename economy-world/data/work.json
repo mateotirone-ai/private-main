@@ -2,28 +2,46 @@
   "_comment": "Phase D work-engine content. Numeric tuning lives in data/matrix.json.",
   "extraction": {
     "stone_quarry": {
-      "harvestBlocks": ["minecraft:stone", "minecraft:cobblestone"],
-      "readyBlock": "minecraft:stone"
+      "readyBlock": "minecraft:stone",
+      "stageBlocks": {
+        "depleted": "minecraft:cracked_stone_bricks",
+        "recovering": "minecraft:cobblestone"
+      }
     },
     "ore_mine": {
-      "harvestBlocks": ["minecraft:iron_ore", "minecraft:deepslate_iron_ore"],
-      "readyBlock": "minecraft:iron_ore"
+      "readyBlock": "minecraft:iron_ore",
+      "stageBlocks": {
+        "depleted": "minecraft:cracked_deepslate_bricks",
+        "recovering": "minecraft:cobbled_deepslate"
+      }
     },
     "precious_mine": {
-      "harvestBlocks": ["minecraft:gold_ore", "minecraft:deepslate_gold_ore"],
-      "readyBlock": "minecraft:gold_ore"
+      "readyBlock": "minecraft:gold_ore",
+      "stageBlocks": {
+        "depleted": "minecraft:cracked_deepslate_tiles",
+        "recovering": "minecraft:cobbled_deepslate"
+      }
     },
     "lumber_camp": {
-      "harvestBlocks": ["minecraft:oak_log"],
-      "readyBlock": "minecraft:oak_log"
+      "readyBlock": "minecraft:oak_log",
+      "stageBlocks": {
+        "depleted": "minecraft:cracked_stone_bricks",
+        "recovering": "minecraft:mossy_cobblestone"
+      }
     },
     "crop_farm": {
-      "harvestBlocks": ["minecraft:wheat"],
-      "readyBlock": "minecraft:wheat"
+      "readyBlock": "minecraft:wheat",
+      "stageBlocks": {
+        "depleted": "minecraft:cracked_stone_bricks",
+        "recovering": "minecraft:mossy_cobblestone"
+      }
     },
     "fishery": {
-      "harvestBlocks": ["ew:fishing_spot"],
-      "readyBlock": "ew:fishing_spot"
+      "readyBlock": "ew:fishing_spot",
+      "stageBlocks": {
+        "depleted": "minecraft:cracked_stone_bricks",
+        "recovering": "minecraft:cobblestone"
+      }
     }
   },
   "processing": {
@@ -31,11 +49,16 @@
     "smeltery": { "inputGood": "iron_ore", "outputGood": "iron" },
     "bakery": { "inputGood": "wheat", "outputGood": "bread" }
   },
-  "service": {
-    "general_store": { "needGood": "bread" }
-  },
-  "stageBlocks": {
-    "depleted": "ew:node_depleted",
-    "recovering": "ew:node_recovering"
+  "jobTools": {
+    "stone_quarry": { "1": "minecraft:stone_pickaxe", "2": "minecraft:iron_pickaxe" },
+    "ore_mine": { "1": "minecraft:stone_pickaxe", "2": "minecraft:iron_pickaxe" },
+    "precious_mine": { "1": "minecraft:iron_pickaxe", "2": "minecraft:diamond_pickaxe" },
+    "lumber_camp": { "1": "minecraft:stone_axe", "2": "minecraft:iron_axe" },
+    "crop_farm": { "1": "minecraft:wooden_hoe", "2": "minecraft:iron_hoe" },
+    "fishery": { "1": "minecraft:fishing_rod", "2": "minecraft:fishing_rod" },
+    "sawmill": { "1": "minecraft:stone_axe", "2": "minecraft:iron_axe" },
+    "smeltery": { "1": "minecraft:stone_pickaxe", "2": "minecraft:iron_pickaxe" },
+    "bakery": { "1": "minecraft:wooden_hoe", "2": "minecraft:iron_hoe" },
+    "general_store": { "1": "minecraft:wooden_shovel", "2": "minecraft:iron_shovel" }
   }
 }

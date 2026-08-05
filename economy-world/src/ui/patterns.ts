@@ -21,7 +21,7 @@ import {
   titleWithGlyph,
 } from "./theme";
 import { Voice } from "./voice";
-import { toast } from "./toast";
+import { feedback } from "./feedback";
 import { safeShow } from "./safeShow";
 
 export interface HubButton {
@@ -187,7 +187,7 @@ export async function catalog(
   if (idx < slice.length) {
     const e = slice[idx]!;
     if (e.locked) {
-      toast(player, e.lockReason ?? Voice.reserved, "caution");
+      feedback(player, e.lockReason ?? Voice.reserved, "caution");
       await catalog(player, opts);
       return;
     }

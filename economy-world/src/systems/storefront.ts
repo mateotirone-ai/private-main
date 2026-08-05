@@ -10,11 +10,11 @@ import {
   LedgerError,
 } from "../core/ledger";
 import { matrix } from "../content/matrix";
-import { tradeDef } from "../content/trades";
+import { allTradeIds, tradeDef } from "../content/trades";
 import { currentTick } from "../core/scheduler";
 import { bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
-import { toast } from "../ui/toast";
+import { feedback } from "../ui/feedback";
 import { menuHub, catalog, confirmTxn } from "../ui/patterns";
 import { countItem, takeItems, giveItem } from "./cash";
 import {
@@ -27,6 +27,28 @@ import {
 import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./pricing";
 import { freelancePayout } from "./pricingMath";
 import { playerAccount } from "./bank";
+import { paySaleCashFromAccount } from "./saleCash";
+
+function displayGood(good: string): string {
+  if (good === "log") return "logs";
+  return good.replaceAll("_", " ");
+}
+
+function wrongGoodsLine(player: Player, currentTrade: string): string {
+  const current = tradeDef(currentTrade);
+  const heldTrade = allTradeIds().find(
+    (trade) =>
+      trade !== currentTrade && countItem(player, tradeDef(trade).item) > 0
+  );
+  if (!heldTrade) {
+    return `I sell ${displayGood(current.good)} — take raw goods to their matching business.`;
+  }
+  const destination = tradeDef(heldTrade);
+  const raw = current.kind === "processing" && destination.kind === "extraction"
+    ? "raw "
+    : "";
+  return `I sell ${displayGood(current.good)} — ${raw}${displayGood(destination.good)} go to the ${destination.name}.`;
+}
 
 export async function openStorefront(
   player: Player,
@@ -37,7 +59,7 @@ export async function openStorefront(
 ): Promise<void> {
   const biz = bizState.byId[bizId];
   if (!biz) {
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
     return;
   }
   const def = tradeDef(biz.trade);
@@ -47,7 +69,7 @@ export async function openStorefront(
     facts: [
       `Stock: ${biz.storage}`,
       `Price: ${bareAmount(unit)} each`,
-      `Freelance rate: ${Math.round(matrix.freelanceRate * 100)}%`,
+      `Sell payout: ${merids(freelancePayout(unit, 1, matrix.freelanceRate))} each — cash`,
     ],
     narrator: Voice.shopWelcome,
     buttons: [
@@ -72,7 +94,7 @@ async function buyFlow(
 ): Promise<void> {
   const def = tradeDef(biz.trade);
   if (biz.storage <= 0) {
-    toast(player, Voice.shopEmpty, "caution");
+    feedback(player, Voice.shopEmpty, "caution");
     return;
   }
   const unit = currentUnitPrice(prices, def.good);
@@ -83,13 +105,13 @@ async function buyFlow(
     narrator: Voice.shopWelcome,
     entries: [
       {
-        name: `${def.good} ×1`,
+        name: `${displayGood(def.good)} ×1`,
         price: unit,
-        detailFacts: [`Good: ${def.good}`, `Stock: ${biz.storage}`],
+        detailFacts: [`Good: ${displayGood(def.good)}`, `Stock: ${biz.storage}`],
         onBuy: () => confirmBuy(player, ledger, bizState, prices, biz, 1, unit),
       },
       {
-        name: `${def.good} ×${Math.min(8, maxBuy)}`,
+        name: `${displayGood(def.good)} ×${Math.min(8, maxBuy)}`,
         price: unit * Math.min(8, maxBuy),
         locked: maxBuy < 8,
         lockReason: Voice.shopEmpty,
@@ -97,7 +119,7 @@ async function buyFlow(
           confirmBuy(player, ledger, bizState, prices, biz, Math.min(8, maxBuy), unit),
       },
       {
-        name: `${def.good} ×${maxBuy} (max)`,
+        name: `${displayGood(def.good)} ×${maxBuy} (max)`,
         price: unit * maxBuy,
         onBuy: () => confirmBuy(player, ledger, bizState, prices, biz, maxBuy, unit),
       },
@@ -117,20 +139,20 @@ async function confirmBuy(
   const def = tradeDef(biz.trade);
   const live = bizState.byId[biz.id]!;
   if (live.storage < qty) {
-    toast(player, Voice.shopEmpty, "caution");
+    feedback(player, Voice.shopEmpty, "caution");
     return;
   }
   const total = unit * qty;
   const acct = playerAccount(player);
   const before = balance(ledger, acct);
   if (before < total) {
-    toast(player, Voice.transferFailFunds, "error");
+    feedback(player, Voice.transferFailFunds, "error");
     return;
   }
   const ok = await confirmTxn(player, {
     title: "Buy",
     facts: [
-      `Buying: ${qty} ${def.good}`,
+      `Buying: ${qty} ${displayGood(def.good)}`,
       `Price: ${bareAmount(unit)} each`,
     ],
     lines: [{ label: "Cost", amount: total, sense: "loss" }],
@@ -146,12 +168,12 @@ async function confirmBuy(
     giveItem(player, def.item, qty);
     saveBusinesses(bizState);
     savePrices(prices);
-    toast(player, Voice.shopBuyOk(`${qty} ${def.good}`, merids(total)), "gain");
+    feedback(player, Voice.shopBuyOk(`${qty} ${displayGood(def.good)}`, merids(total)), "gain");
   } catch (e) {
-    if (e instanceof LedgerError) toast(player, Voice.transferFailFunds, "error");
+    if (e instanceof LedgerError) feedback(player, Voice.transferFailFunds, "error");
     else {
       console.error(`[ew] shop buy failed: ${e}`);
-      toast(player, Voice.error, "error");
+      feedback(player, Voice.error, "error");
     }
   }
 }
@@ -166,7 +188,7 @@ async function sellFlow(
   const def = tradeDef(biz.trade);
   const qty = countItem(player, def.item);
   if (qty <= 0) {
-    toast(player, Voice.shopNoGoods, "caution");
+    feedback(player, wrongGoodsLine(player, biz.trade), "caution");
     return;
   }
   const unitMarket = currentUnitPrice(prices, def.good);
@@ -181,34 +203,41 @@ async function sellFlow(
   const ok = await confirmTxn(player, {
     title: "Sell (freelancer)",
     facts: [
-      `Selling: ${qty} ${def.good}`,
+      `Selling: ${qty} ${displayGood(def.good)}`,
       `Market: ${bareAmount(unitMarket)} each`,
-      `Freelance rate: ${Math.round(matrix.freelanceRate * 100)}%`,
+      `You receive: ${merids(payout)} — cash`,
     ],
-    lines: [{ label: "Payout", amount: payout, sense: "gain" }],
+    lines: [{ label: "Cash payout", amount: payout, sense: "gain" }],
     balanceBefore: before,
-    balanceAfter: before + payout,
+    balanceAfter: before,
     narrator: Voice.shopWelcome,
   });
   if (!ok) return;
   const taken = takeItems(player, def.item, qty);
   if (taken !== qty) {
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
     return;
   }
   try {
     const live = bizState.byId[biz.id]!;
     ensureBizFloat(ledger, biz.id, payout);
-    transfer(ledger, bizAccount(biz.id), acct, payout, currentTick(), "shop:freelance");
+    paySaleCashFromAccount(
+      ledger,
+      player,
+      bizAccount(biz.id),
+      payout,
+      currentTick(),
+      "shop:freelance"
+    );
     const room = Math.max(0, def.storageCap - live.storage);
     const stored = Math.min(taken, room);
     live.storage += stored;
     adjustStock(prices, def.good, stored);
     saveBusinesses(bizState);
     savePrices(prices);
-    toast(player, Voice.shopSellOk(`${taken} ${def.good}`, merids(payout)), "gain");
+    feedback(player, Voice.shopSellOk(`${taken} ${displayGood(def.good)}`, merids(payout)), "gain");
   } catch (e) {
     console.error(`[ew] shop sell failed: ${e}`);
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
   }
 }

@@ -3,7 +3,6 @@
   "stipend": 250,
   "medical": { "flat": 100, "pctOfWealth": 0.02 },
   "freelanceRate": 0.45,
-  "wagePerHourByTier": { "1": 60, "2": 90 },
   "bank": {
     "_comment": "⚑ transferFee — master doc §13 lists transfer fee as playtest tuning; 'tiny flat fee'.",
     "transferFee": 5
@@ -15,13 +14,25 @@
   },
   "ui": {
     "_comment": "⚑ Toast timing/line limits tuned for couch legibility; not numerically specified in the UI docs.",
-    "toast": { "maxTitleChars": 28, "maxSubtitleChars": 52, "fadeInTicks": 3, "stayTicks": 60, "fadeOutTicks": 8 }
+    "toast": { "maxChars": 42, "fadeInTicks": 2, "stayTicks": 100, "fadeOutTicks": 10 }
   },
   "work": {
     "_comment": "⚑ Phase D timing/capacity numbers are implementation placeholders where docs define behavior but not values.",
-    "zoneRadius": 24,
+    "_nodeStampComment": "⚑ Authored 3x3 test-pit layout; spacing and count are not specified.",
+    "nodeStampOffsets": [
+      { "x": -2, "y": -1, "z": -2 },
+      { "x": 0, "y": -1, "z": -2 },
+      { "x": 2, "y": -1, "z": -2 },
+      { "x": -2, "y": -1, "z": 0 },
+      { "x": 0, "y": -1, "z": 0 },
+      { "x": 2, "y": -1, "z": 0 },
+      { "x": -2, "y": -1, "z": 2 },
+      { "x": 0, "y": -1, "z": 2 },
+      { "x": 2, "y": -1, "z": 2 }
+    ],
     "nodeStages": { "depletedTicks": 100, "recoveringTicks": 300 },
     "processingSweepTicks": 20,
+    "processingTicksPerSecond": 20,
     "processing": {
       "sawmill": { "inputTrade": "lumber_camp", "inputQty": 2, "outputQty": 4, "durationTicks": 200 },
       "smeltery": { "inputTrade": "ore_mine", "inputQty": 2, "outputQty": 1, "durationTicks": 300 },
@@ -34,11 +45,23 @@
       "activeMarginBonus": 0.2
     },
     "employment": {
-      "_comment": "Owner presence multipliers are locked by master design; employee output ceiling is ⚑.",
+      "_comment": "⚑ Piece rates and company-tool quality tiers are live-test placeholders. Owner presence multipliers are locked by master design.",
       "cpuMultiplier": 0.1,
       "offlineOwnerMultiplier": 0.5,
       "activeOwnerMultiplier": 1,
-      "ticksPerHour": 72000
+      "toolQualityByTier": { "1": 1, "2": 2 },
+      "pieceRateByTradeTier": {
+        "stone_quarry": { "1": 2, "2": 3 },
+        "ore_mine": { "1": 4, "2": 6 },
+        "precious_mine": { "1": 25, "2": 35 },
+        "lumber_camp": { "1": 2, "2": 3 },
+        "crop_farm": { "1": 1, "2": 2 },
+        "sawmill": { "1": 3, "2": 5 },
+        "smeltery": { "1": 6, "2": 9 },
+        "bakery": { "1": 3, "2": 4 },
+        "fishery": { "1": 2, "2": 3 },
+        "general_store": { "1": 2, "2": 3 }
+      }
     }
   },
   "dealer": {

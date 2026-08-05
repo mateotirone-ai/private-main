@@ -1,14 +1,15 @@
 /**
- * Employment: job board, clock-in/out, output tracking, fixed-tier payroll.
- * Every wage payment is a Ledger transfer from the business account.
+ * Employment: job board, clock-in/out, output tracking, fixed-tier piece rates.
+ * Every piece-rate payment is a Ledger transfer from the business account.
  */
 import type { Player } from "@minecraft/server";
 import { balance, transfer, type LedgerState } from "../core/ledger";
 import { loadBlob, saveBlob } from "../core/state";
-import { currentTick, every } from "../core/scheduler";
+import { currentTick } from "../core/scheduler";
 import { matrix } from "../content/matrix";
 import { tradeDef } from "../content/trades";
-import { actionbar, clearActionbar, toast } from "../ui/toast";
+import { actionbar, clearActionbar } from "../ui/toast";
+import { feedback } from "../ui/feedback";
 import { confirmTxn, menuHub } from "../ui/patterns";
 import { bareAmount, merids } from "../ui/theme";
 import {
@@ -18,30 +19,38 @@ import {
   type BusinessesState,
 } from "./businesses";
 import { playerAccount } from "./bank";
-import { wagePayout } from "./employmentMath";
+import { pieceRatePayout } from "./employmentMath";
+import { issueCompanyTool, reclaimCompanyTools } from "./companyTools";
 
 export interface EmploymentSession {
   playerId: string;
   businessId: string;
+  trade: string;
   tier: number;
+  ratePerUnit: number;
   clockInTick: number;
-  paidThroughTick: number;
   output: number;
 }
 
 export interface EmploymentState {
-  schema: 1;
+  schema: 2;
   sessions: Record<string, EmploymentSession>;
 }
 
 const KEY = "ew:employment";
 
 export function emptyEmployment(): EmploymentState {
-  return { schema: 1, sessions: {} };
+  return { schema: 2, sessions: {} };
 }
 
 export function loadEmployment(): EmploymentState {
-  return loadBlob<EmploymentState>(KEY) ?? emptyEmployment();
+  const state = loadBlob<EmploymentState>(KEY) ?? emptyEmployment();
+  state.schema = 2;
+  for (const session of Object.values(state.sessions)) {
+    session.trade ??= session.businessId.replace(/^cpu_/, "");
+    session.ratePerUnit ??= pieceRateFor(session.trade, session.tier);
+  }
+  return state;
 }
 
 export function saveEmployment(state: EmploymentState): void {
@@ -59,30 +68,30 @@ export function recordEmployeeOutput(
   state: EmploymentState,
   playerId: string,
   units: number
-): void {
+): { increment: number; total: number } | undefined {
   const session = state.sessions[playerId];
-  if (session) session.output += units;
+  if (!session) return undefined;
+  const before = pieceRatePayout(session.ratePerUnit, session.output);
+  session.output += units;
+  const total = pieceRatePayout(session.ratePerUnit, session.output);
+  return { increment: total - before, total };
 }
 
-function tierWage(tier: number): number {
-  const wage = matrix.wagePerHourByTier[String(tier)];
-  if (wage === undefined) throw new Error(`missing wage for tier ${tier}`);
-  return wage;
+export function pieceRateFor(trade: string, tier: number): number {
+  const rate = matrix.work.employment.pieceRateByTradeTier[trade]?.[String(tier)];
+  if (rate === undefined) {
+    throw new Error(`missing piece rate for ${trade} tier ${tier}`);
+  }
+  return rate;
 }
 
-function payElapsed(
+function payOutput(
   playerId: string,
   session: EmploymentSession,
   nowTick: number,
   ledger: LedgerState
 ): number {
-  const elapsed = Math.max(0, nowTick - session.paidThroughTick);
-  const payout = wagePayout(
-    tierWage(session.tier),
-    elapsed,
-    matrix.work.employment.ticksPerHour
-  );
-  session.paidThroughTick = nowTick;
+  const payout = pieceRatePayout(session.ratePerUnit, session.output);
   if (payout <= 0) return 0;
   ensureBizFloat(ledger, session.businessId, payout);
   transfer(
@@ -104,7 +113,7 @@ export function clockOut(
 ): number {
   const session = state.sessions[playerId];
   if (!session) return 0;
-  const payout = payElapsed(playerId, session, nowTick, ledger);
+  const payout = payOutput(playerId, session, nowTick, ledger);
   delete state.sessions[playerId];
   saveEmployment(state);
   return payout;
@@ -120,18 +129,13 @@ export async function openJobBoard(
   if (active) {
     const business = businesses.byId[active.businessId];
     const name = business ? tradeDef(business.trade).name : active.businessId;
-    const now = currentTick();
-    const pending = wagePayout(
-      tierWage(active.tier),
-      now - active.paidThroughTick,
-      matrix.work.employment.ticksPerHour
-    );
+    const pending = pieceRatePayout(active.ratePerUnit, active.output);
     await menuHub(player, {
       title: "Employment",
       facts: [
         `Clocked in: ${name}`,
         `Output: ${active.output}`,
-        `Pending wage: ${bareAmount(pending)}`,
+        `Accrued pay: ${bareAmount(pending)}`,
       ],
       narrator: "The time clock remembers.",
       buttons: [
@@ -142,15 +146,18 @@ export async function openJobBoard(
             const ok = await confirmTxn(player, {
               title: "Clock out",
               facts: [`Business: ${name}`, `Output: ${active.output}`],
-              lines: [{ label: "Pending wage", amount: pending, sense: "gain" }],
+              lines: [{ label: "Piece-rate pay", amount: pending, sense: "gain" }],
               balanceBefore: before,
               balanceAfter: before + pending,
-              narrator: "Hours verified. Payroll is less sentimental.",
+              narrator: "Output verified. Payroll is less sentimental.",
             });
             if (!ok) return;
             const paid = clockOut(employment, player.id, currentTick(), ledger);
+            reclaimCompanyTools(player, "clockOut");
             clearActionbar(player);
-            if (paid > 0) toast(player, `Wage paid: ${merids(paid)}`, "gain");
+            if (paid > 0) {
+              feedback(player, `Piece-rate paid: ${merids(paid)}`, "gain");
+            }
           },
         },
       ],
@@ -161,16 +168,16 @@ export async function openJobBoard(
   await menuHub(player, {
     title: "Job board",
     facts: [`Openings: ${listCpuBusinesses(businesses).length}`],
-    narrator: "A steady wage is ownership's less dramatic cousin.",
+    narrator: "A steady piece rate is ownership's less dramatic cousin.",
     buttons: listCpuBusinesses(businesses).map((business) => ({
-      label: `${tradeDef(business.trade).name} — ${bareAmount(tierWage(business.tier))}/hr`,
+      label: `${tradeDef(business.trade).name} — ${bareAmount(pieceRateFor(business.trade, business.tier))}/unit`,
       onSelect: async () => {
         const before = balance(ledger, playerAccount(player));
         const ok = await confirmTxn(player, {
           title: "Clock in",
           facts: [
             `Business: ${tradeDef(business.trade).name}`,
-            `Wage: ${merids(tierWage(business.tier))} per hour`,
+            `Piece rate: ${merids(pieceRateFor(business.trade, business.tier))} per unit`,
           ],
           lines: [],
           balanceBefore: before,
@@ -178,13 +185,29 @@ export async function openJobBoard(
           narrator: "Tools are not included. Accountability is.",
         });
         if (!ok) return;
+        if (
+          !issueCompanyTool(
+            player,
+            business.id,
+            business.trade,
+            business.tier
+          )
+        ) {
+          feedback(
+            player,
+            "Make one inventory slot available for the company tool.",
+            "caution"
+          );
+          return;
+        }
         const tick = currentTick();
         employment.sessions[player.id] = {
           playerId: player.id,
           businessId: business.id,
+          trade: business.trade,
           tier: business.tier,
+          ratePerUnit: pieceRateFor(business.trade, business.tier),
           clockInTick: tick,
-          paidThroughTick: tick,
           output: 0,
         };
         saveEmployment(employment);
@@ -192,21 +215,4 @@ export async function openJobBoard(
       },
     })),
   });
-}
-
-/** Hourly sweep; online/offline sessions settle through the same ledger path. */
-export function startPayrollJob(
-  state: EmploymentState,
-  ledger: LedgerState
-): void {
-  every(
-    "employment:payroll",
-    matrix.work.employment.ticksPerHour,
-    (tick) => {
-      for (const session of Object.values(state.sessions)) {
-        payElapsed(session.playerId, session, tick, ledger);
-      }
-      saveEmployment(state);
-    }
-  );
 }

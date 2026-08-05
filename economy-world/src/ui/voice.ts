@@ -26,7 +26,7 @@ export const Voice = {
   dealerWelcome: "Assay window. Gold and diamonds become merids. Everything else is scenery.",
   dealerSellNarrator: "Assayed. Merids issued. Fort Knox sends its regards.",
   dealerSold: (good: string, qty: number, n: string) =>
-    `Assayed ${qty} ${good}. Issued ${n}. Fort Knox sends its regards.`,
+    `Assayed ${qty} ${good}. Issued ${n} in cash. Fort Knox sends its regards.`,
   dealerEmpty: (good: string) => `No ${good} on you. The window does not accept vibes.`,
   dealerSoft: "Volume is noted. Today's price has… adjusted.",
   pricesBoard: "Today's mint window. Softened by volume. Published because secrets are for bandits.",
@@ -38,11 +38,11 @@ export const Voice = {
   // storefront / commons (Phase C)
   shopWelcome: "Storefront open. Prices move. Stock is finite.",
   shopBuyOk: (good: string, n: string) => `Purchased ${good} for ${n}.`,
-  shopSellOk: (good: string, n: string) => `Sold ${good} for ${n}. Freelancer rate applied.`,
+  shopSellOk: (good: string, n: string) => `Sold ${good} for ${n} in cash.`,
   shopEmpty: "Sold out. The shelves are resting.",
   shopNoGoods: "You have nothing this shop buys.",
   commonsWelcome: "Public commons. Gather what you can. Sell to the matching trade.",
-  commonsSellOk: (good: string, n: string) => `Commons sale: ${good} for ${n}.`,
+  commonsSellOk: (good: string, n: string) => `Commons sale: ${good} for ${n} in cash.`,
 
   // wallet
   walletPacked: (n: string) => `Packed ${n} into your wallet.`,

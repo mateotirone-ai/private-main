@@ -1,22 +1,23 @@
 /**
  * Commodity Dealer — layer1 §4.4.
- * Sell gold/diamonds → Ledger.mint(mint:dealer) + reserve + daily-capacity softening.
+ * Sell gold/diamonds → mint:dealer → cashOut + physical cash, with reserve/softening.
  * Screens conform to ui-amendment-1.md A1.1–A1.4.
  */
 import type { Player } from "@minecraft/server";
-import { mint, balance, type LedgerState } from "../core/ledger";
+import { balance, type LedgerState } from "../core/ledger";
 import { dealerCapacity, dealerSoftFloor, type PreciousGood } from "../content/matrix";
 import { basePrice, PRECIOUS_ITEMS } from "../content/prices";
 import { currentTick } from "../core/scheduler";
 import { Glyph, bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
-import { toast } from "../ui/toast";
+import { feedback } from "../ui/feedback";
 import { menuHub, confirmTxn, progressPanel } from "../ui/patterns";
 import { quoteSale, unitMultiplier } from "./dealerMath";
 import { countItem, takeItems } from "./cash";
 import { addReserve, loadReserve, saveReserve } from "./reserve";
 import { loadDealerState, saveDealerState, rollDealerDay } from "./dealerState";
 import { playerAccount } from "./bank";
+import { paySaleCashFromMint } from "./saleCash";
 
 const GOOD_LABEL: Record<PreciousGood, string> = {
   gold: "gold ingots",
@@ -41,7 +42,7 @@ async function sellFlow(player: Player, ledger: LedgerState, good: PreciousGood)
   const typeId = PRECIOUS_ITEMS[good];
   const qty = countItem(player, typeId);
   if (qty <= 0) {
-    toast(player, Voice.dealerEmpty(good), "caution");
+    feedback(player, Voice.dealerEmpty(good), "caution");
     return;
   }
   const dState = loadDealerState();
@@ -59,23 +60,24 @@ async function sellFlow(player: Player, ledger: LedgerState, good: PreciousGood)
   const facts = [
     `Selling: ${qty} ${unitLabel}`,
     quote.softened
-      ? `Price: ${bareAmount(quote.avgUnitPrice)} each (softened from ${bareAmount(quote.base)} — high volume today)`
+      ? `Price: ${bareAmount(quote.avgUnitPrice)} each — high volume today`
       : `Price: ${bareAmount(quote.base)} each`,
+    `You receive: ${merids(quote.payout)} — cash`,
   ];
   const ok = await confirmTxn(player, {
     title: `Sell ${good}`,
     glyph: Glyph.coin,
     facts,
-    lines: [{ label: "Payout", amount: quote.payout, sense: "gain" }],
+    lines: [{ label: "Cash payout", amount: quote.payout, sense: "gain" }],
     balanceBefore: before,
-    balanceAfter: before + quote.payout,
+    balanceAfter: before,
     narrator: quote.softened ? Voice.dealerSoft : Voice.dealerSellNarrator,
   });
   if (!ok) return;
 
   const taken = takeItems(player, typeId, qty);
   if (taken !== qty) {
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
     return;
   }
   rollDealerDay(dState, currentTick());
@@ -86,13 +88,23 @@ async function sellFlow(player: Player, ledger: LedgerState, good: PreciousGood)
     dealerCapacity(good),
     dealerSoftFloor()
   );
-  mint(ledger, acct, finalQuote.payout, currentTick(), "mint:dealer");
+  paySaleCashFromMint(
+    ledger,
+    player,
+    finalQuote.payout,
+    currentTick(),
+    "mint:dealer"
+  );
   dState.soldToday[good] += taken;
   saveDealerState(dState);
   const reserve = loadReserve();
   addReserve(reserve, good, taken);
   saveReserve(reserve);
-  toast(player, Voice.dealerSold(good, taken, merids(finalQuote.payout)), "gain");
+  feedback(
+    player,
+    Voice.dealerSold(good, taken, merids(finalQuote.payout)),
+    "gain"
+  );
 }
 
 async function pricesBoard(player: Player): Promise<void> {
@@ -108,7 +120,7 @@ async function pricesBoard(player: Player): Promise<void> {
       label: `${good}`,
       filled: sold,
       total: cap,
-      note: `Unit: ${bareAmount(unit)} (base ${bareAmount(basePrice(good))})`,
+      note: `Current unit value: ${bareAmount(unit)}`,
       ok: mult >= 0.99,
     };
   });

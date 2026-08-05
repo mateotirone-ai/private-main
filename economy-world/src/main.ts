@@ -33,12 +33,15 @@ import { openCommons } from "./systems/commons";
 import { openWallet } from "./systems/wallet";
 import { ensureWallet } from "./systems/cash";
 import { tradeDef } from "./content/trades";
+import { withNpcSpeaker } from "./ui/feedback";
 import {
+  clockOut,
   loadEmployment,
   openJobBoard,
-  startPayrollJob,
   type EmploymentState,
 } from "./systems/employment";
+import { reclaimCompanyTools } from "./systems/companyTools";
+import { clearActionbar } from "./ui/toast";
 import {
   loadExtraction,
   registerPlayerZone,
@@ -52,6 +55,7 @@ import {
   type ProcessingState,
 } from "./systems/processing";
 import {
+  forceSpawnCustomerNeed,
   loadService,
   openServiceCustomer,
   startServiceJob,
@@ -129,14 +133,18 @@ function boot(): void {
       return ids;
     }
   );
-  startPayrollJob(employmentState, ledger);
   startExtractionSystem(
     extractionState,
     bizState,
     pricesState,
     employmentState
   );
-  startProcessingJob(processingState, bizState, pricesState);
+  startProcessingJob(
+    processingState,
+    bizState,
+    pricesState,
+    employmentState
+  );
   startServiceJob(serviceState);
 
   system.afterEvents.scriptEventReceive.subscribe((ev) => {
@@ -186,22 +194,28 @@ function boot(): void {
       if (ev.message.startsWith("zone ") && player) {
         const trade = ev.message.slice(5).trim();
         const businessId = `cpu_${trade}`;
-        if (!bizState.byId[businessId]) {
+        if (
+          !bizState.byId[businessId] ||
+          tradeDef(trade).kind !== "extraction"
+        ) {
           world.sendMessage(`§c[dev] unknown work-zone trade: ${trade}`);
           return;
         }
-        registerPlayerZone(extractionState, player, businessId);
-        world.sendMessage(`§a[dev] work zone registered for ${trade}`);
+        registerPlayerZone(extractionState, player, businessId, trade);
+        world.sendMessage(`§a[dev] stamped employee test pit for ${trade}`);
       }
       if (ev.message.startsWith("publiczone ") && player) {
         const trade = ev.message.slice(11).trim();
         const businessId = `cpu_${trade}`;
-        if (!bizState.byId[businessId]) {
+        if (
+          !bizState.byId[businessId] ||
+          tradeDef(trade).kind !== "extraction"
+        ) {
           world.sendMessage(`§c[dev] unknown public-zone trade: ${trade}`);
           return;
         }
-        registerPlayerZone(extractionState, player, businessId, true);
-        world.sendMessage(`§a[dev] public work zone registered for ${trade}`);
+        registerPlayerZone(extractionState, player, businessId, trade, true);
+        world.sendMessage(`§a[dev] stamped public test pit for ${trade}`);
       }
       if (ev.message.startsWith("station ") && player) {
         const trade = ev.message.slice(8).trim();
@@ -211,6 +225,7 @@ function boot(): void {
           processingState,
           bizState,
           pricesState,
+          employmentState,
           trade,
           `dev:${player.id}:${trade}`
         );
@@ -226,6 +241,16 @@ function boot(): void {
           employmentState,
           trade
         );
+      }
+      if (ev.message.startsWith("need ")) {
+        const trade = ev.message.slice(5).trim();
+        const businessId = `cpu_${trade}`;
+        if (!bizState.byId[businessId]) {
+          world.sendMessage(`§c[dev] unknown service trade: ${trade}`);
+          return;
+        }
+        forceSpawnCustomerNeed(serviceState, trade, currentTick());
+        world.sendMessage(`§a[dev] forced one customer need for ${trade}`);
       }
       return;
     }
@@ -253,6 +278,7 @@ function boot(): void {
           processingState,
           bizState,
           pricesState,
+          employmentState,
           trade,
           `event:${player.id}:${trade}`
         );
@@ -277,20 +303,37 @@ function boot(): void {
     if (tags.includes("ew:npc_bank")) {
       ev.cancel = true;
       const player = ev.player;
-      system.run(() => void openBank(player, ledger));
+      const speaker = ev.target.nameTag || "Meridian Central Bank";
+      system.run(
+        () => void withNpcSpeaker(player, speaker, () => openBank(player, ledger))
+      );
     } else if (tags.includes("ew:npc_dealer")) {
       ev.cancel = true;
       const player = ev.player;
-      system.run(() => void openDealer(player, ledger));
+      const speaker = ev.target.nameTag || "Commodity Dealer";
+      system.run(
+        () =>
+          void withNpcSpeaker(player, speaker, () => openDealer(player, ledger))
+      );
     } else if (tags.includes("ew:npc_commons")) {
       ev.cancel = true;
       const player = ev.player;
-      system.run(() => void openCommons(player, ledger, bizState, pricesState));
+      const speaker = ev.target.nameTag || "Commons Steward";
+      system.run(
+        () =>
+          void withNpcSpeaker(player, speaker, () =>
+            openCommons(player, ledger, bizState, pricesState)
+          )
+      );
     } else if (tags.includes("ew:npc_jobs")) {
       ev.cancel = true;
       const player = ev.player;
+      const speaker = ev.target.nameTag || "Employment Clerk";
       system.run(
-        () => void openJobBoard(player, ledger, bizState, employmentState)
+        () =>
+          void withNpcSpeaker(player, speaker, () =>
+            openJobBoard(player, ledger, bizState, employmentState)
+          )
       );
     } else {
       const stationTag = tags.find((t) => t.startsWith("ew:station_"));
@@ -299,16 +342,20 @@ function boot(): void {
         const trade = stationTag.slice("ew:station_".length);
         const player = ev.player;
         const stationId = ev.target.id;
+        const speaker = ev.target.nameTag || tradeDef(trade).name;
         system.run(
           () =>
-            void openProcessingStation(
-              player,
-              ledger,
-              processingState,
-              bizState,
-              pricesState,
-              trade,
-              stationId
+            void withNpcSpeaker(player, speaker, () =>
+              openProcessingStation(
+                player,
+                ledger,
+                processingState,
+                bizState,
+                pricesState,
+                employmentState,
+                trade,
+                stationId
+              )
             )
         );
         return;
@@ -318,16 +365,21 @@ function boot(): void {
         ev.cancel = true;
         const trade = serviceTag.slice("ew:service_".length);
         const player = ev.player;
+        const hostId = ev.target.id;
+        const speaker = ev.target.nameTag || tradeDef(trade).name;
         system.run(
           () =>
-            void openServiceCustomer(
-              player,
-              ledger,
-              serviceState,
-              bizState,
-              pricesState,
-              employmentState,
-              trade
+            void withNpcSpeaker(player, speaker, () =>
+              openServiceCustomer(
+                player,
+                ledger,
+                serviceState,
+                bizState,
+                pricesState,
+                employmentState,
+                trade,
+                hostId
+              )
             )
         );
         return;
@@ -339,7 +391,13 @@ function boot(): void {
         const id = `cpu_${trade}`;
         if (bizState.byId[id]) {
           const player = ev.player;
-          system.run(() => void openStorefront(player, ledger, bizState, pricesState, id));
+          const speaker = ev.target.nameTag || tradeDef(trade).name;
+          system.run(
+            () =>
+              void withNpcSpeaker(player, speaker, () =>
+                openStorefront(player, ledger, bizState, pricesState, id)
+              )
+          );
         } else {
           console.warn(`[ew] shop tag ${shopTag} has no business (known: ${Object.keys(bizState.byId).join(",")})`);
         }
@@ -350,6 +408,24 @@ function boot(): void {
   // Use-item on wallet opens pack/unpack hub
   world.afterEvents.itemUse.subscribe((ev) => {
     if (ev.itemStack.typeId === "ew:wallet") void openWallet(ev.source);
+  });
+
+  world.afterEvents.entityDie.subscribe((ev) => {
+    const player = asPlayer(ev.deadEntity);
+    if (!player || !employmentState.sessions[player.id]) return;
+    system.run(() => {
+      clockOut(employmentState, player.id, currentTick(), ledger);
+      reclaimCompanyTools(player, "death");
+      clearActionbar(player);
+    });
+  });
+  world.afterEvents.playerSpawn.subscribe((ev) => {
+    if (ev.initialSpawn) return;
+    if (employmentState.sessions[ev.player.id]) {
+      clockOut(employmentState, ev.player.id, currentTick(), ledger);
+    }
+    reclaimCompanyTools(ev.player, "death");
+    clearActionbar(ev.player);
   });
 
   const tradeNames = listCpuBusinesses(bizState)

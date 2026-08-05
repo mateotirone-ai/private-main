@@ -2,14 +2,20 @@
  * Physical processing stations: consume raw business stock, wait, produce refined.
  * Station hosts are tagged `ew:station_<processing trade>`.
  */
-import type { Player } from "@minecraft/server";
+import { world, type Player } from "@minecraft/server";
 import { loadBlob, saveBlob } from "../core/state";
 import { currentTick, every } from "../core/scheduler";
 import { matrix } from "../content/matrix";
 import { processingDef, processingNumbers } from "../content/work";
 import { tradeDef } from "../content/trades";
-import { confirmTxn, progressPanel } from "../ui/patterns";
-import { toast } from "../ui/toast";
+import {
+  confirmTxn,
+  managePanel,
+  menuHub,
+  progressPanel,
+} from "../ui/patterns";
+import { actionbar } from "../ui/toast";
+import { feedback } from "../ui/feedback";
 import { balance } from "../core/ledger";
 import type { LedgerState } from "../core/ledger";
 import { playerAccount } from "./bank";
@@ -20,20 +26,39 @@ import {
   type ProcessingJob,
 } from "./processingMath";
 import { adjustStock, savePrices, type PricesState } from "./pricing";
+import {
+  employmentSession,
+  recordEmployeeOutput,
+  saveEmployment,
+  type EmploymentState,
+} from "./employment";
+import { countItem } from "./cash";
 
 export interface ProcessingState {
-  schema: 1;
+  schema: 2;
   jobs: Record<string, ProcessingJob>;
 }
 
 const KEY = "ew:processing";
 
+function displayGood(good: string, qty: number): string {
+  if (good === "log") return qty === 1 ? "log" : "logs";
+  return good.replaceAll("_", " ");
+}
+
 export function emptyProcessing(): ProcessingState {
-  return { schema: 1, jobs: {} };
+  return { schema: 2, jobs: {} };
 }
 
 export function loadProcessing(): ProcessingState {
-  return loadBlob<ProcessingState>(KEY) ?? emptyProcessing();
+  const state = loadBlob<ProcessingState>(KEY) ?? emptyProcessing();
+  state.schema = 2;
+  for (const job of Object.values(state.jobs)) {
+    job.durationTicks ??= job.dueTick - job.startedTick;
+    job.batchesTotal ??= 1;
+    job.batchesCompleted ??= job.complete ? 1 : 0;
+  }
+  return state;
 }
 
 export function saveProcessing(state: ProcessingState): void {
@@ -46,83 +71,149 @@ export async function openProcessingStation(
   state: ProcessingState,
   businesses: BusinessesState,
   prices: PricesState,
+  employment: EmploymentState,
   trade: string,
   stationId: string
 ): Promise<void> {
   const content = processingDef(trade);
   if (!content) {
-    toast(player, "This station has no configured recipe.", "error");
+    feedback(player, "This station has no configured recipe.", "error");
     return;
   }
   const numbers = processingNumbers(trade);
   const inputBusiness = businesses.byId[`cpu_${numbers.inputTrade}`];
   const outputBusiness = businesses.byId[`cpu_${trade}`];
   if (!inputBusiness || !outputBusiness) {
-    toast(player, "Processing businesses are unavailable.", "error");
+    feedback(player, "Processing businesses are unavailable.", "error");
     return;
   }
+  const personalRaw = countItem(
+    player,
+    tradeDef(numbers.inputTrade).item
+  );
 
   const active = state.jobs[stationId];
   if (active && !active.complete) {
+    const remainingTicks = Math.max(0, active.dueTick - currentTick());
+    const remainingSeconds = Math.ceil(
+      remainingTicks / matrix.work.processingTicksPerSecond
+    );
+    const queued = active.batchesTotal - active.batchesCompleted;
     await progressPanel(player, {
       title: `${tradeDef(trade).name} station`,
       facts: [
-        `Input: ${numbers.inputQty} ${content.inputGood}`,
-        `Output: ${numbers.outputQty} ${content.outputGood}`,
-        `Ticks remaining: ${Math.max(0, active.dueTick - currentTick())}`,
+        `Business raw stock: ${inputBusiness.storage} ${displayGood(content.inputGood, inputBusiness.storage)}`,
+        `Business refined stock: ${outputBusiness.storage} ${displayGood(content.outputGood, outputBusiness.storage)}`,
+        `Personal inventory: ${personalRaw} ${displayGood(content.inputGood, personalRaw)}`,
+        `Running: ${numbers.inputQty} ${displayGood(content.inputGood, numbers.inputQty)} → ${numbers.outputQty} ${displayGood(content.outputGood, numbers.outputQty)}, ${remainingSeconds}s`,
+        `Queue remaining: ${queued} ${queued === 1 ? "batch" : "batches"}`,
+        "Processing uses business stock, never personal inventory",
       ],
       narrator: "Refinement is mostly waiting with paperwork.",
       rows: [
         {
           label: "Processing",
-          filled: currentTick() - active.startedTick,
-          total: active.dueTick - active.startedTick,
+          filled: Math.max(0, active.durationTicks - remainingTicks),
+          total: active.durationTicks,
         },
       ],
     });
     return;
   }
 
-  const accountBalance = balance(ledger, playerAccount(player));
-  const ok = await confirmTxn(player, {
+  const maxBatches = Math.floor(inputBusiness.storage / numbers.inputQty);
+  await menuHub(player, {
     title: `${tradeDef(trade).name} station`,
     facts: [
-      `Load: ${numbers.inputQty} ${content.inputGood}`,
-      `Output: ${numbers.outputQty} ${content.outputGood}`,
-      `Duration: ${numbers.durationTicks} ticks`,
-      `Input stock: ${inputBusiness.storage}`,
+      `Business raw stock: ${inputBusiness.storage} ${displayGood(content.inputGood, inputBusiness.storage)}`,
+      `Business refined stock: ${outputBusiness.storage} ${displayGood(content.outputGood, outputBusiness.storage)}`,
+      `Personal inventory: ${personalRaw} ${displayGood(content.inputGood, personalRaw)}`,
+      "Processing uses business stock, never personal inventory",
+      "Station: idle",
     ],
-    lines: [],
-    balanceBefore: accountBalance,
-    balanceAfter: accountBalance,
     narrator: "Load it. Wait. Haul something better.",
-  });
-  if (!ok) return;
+    buttons: [
+      {
+        label: `Queue batches — max ${maxBatches}`,
+        onSelect: async () => {
+          if (maxBatches <= 0) {
+            feedback(player, "Not enough business raw stock.", "caution");
+            return;
+          }
+          const selection = await managePanel(player, {
+            title: "Queue processing",
+            fields: [
+              {
+                type: "slider",
+                label: `Batches (max ${maxBatches})`,
+                min: 1,
+                max: maxBatches,
+                step: 1,
+                defaultValue: 1,
+              },
+            ],
+            saveLabel: "Review batch",
+          });
+          if (!selection) return;
+          const batches = Number(selection.values[0]);
+          const accountBalance = balance(ledger, playerAccount(player));
+          const ok = await confirmTxn(player, {
+            title: "Queue processing",
+            facts: [
+              `Batches: ${batches}`,
+              `Business input: ${numbers.inputQty * batches} ${displayGood(content.inputGood, numbers.inputQty * batches)}`,
+              `Business output: ${numbers.outputQty * batches} ${displayGood(content.outputGood, numbers.outputQty * batches)}`,
+              "Personal inventory is not used",
+            ],
+            lines: [],
+            balanceBefore: accountBalance,
+            balanceAfter: accountBalance,
+            narrator: "Queued in order. The machinery dislikes improvisation.",
+          });
+          if (!ok) return;
 
-  try {
-    const started = startProcessing(
-      stationId,
-      trade,
-      currentTick(),
-      inputBusiness.storage,
-      numbers
-    );
-    inputBusiness.storage = started.inputStockAfter;
-    adjustStock(prices, content.inputGood, -numbers.inputQty);
-    state.jobs[stationId] = started.job;
-    saveProcessing(state);
-    saveBusinesses(businesses);
-    savePrices(prices);
-    toast(player, "Processing started.", "info");
-  } catch {
-    toast(player, "Not enough raw stock.", "caution");
-  }
+          try {
+            const session = employmentSession(employment, player.id);
+            const started = startProcessing(
+              stationId,
+              trade,
+              currentTick(),
+              inputBusiness.storage,
+              numbers,
+              session?.businessId === outputBusiness.id
+                ? player.id
+                : undefined,
+              batches
+            );
+            inputBusiness.storage = started.inputStockAfter;
+            adjustStock(
+              prices,
+              content.inputGood,
+              -(numbers.inputQty * batches)
+            );
+            state.jobs[stationId] = started.job;
+            saveProcessing(state);
+            saveBusinesses(businesses);
+            savePrices(prices);
+            feedback(
+              player,
+              `${batches} ${batches === 1 ? "batch" : "batches"} queued.`,
+              "info"
+            );
+          } catch {
+            feedback(player, "Not enough business raw stock.", "caution");
+          }
+        },
+      },
+    ],
+  });
 }
 
 export function startProcessingJob(
   state: ProcessingState,
   businesses: BusinessesState,
-  prices: PricesState
+  prices: PricesState,
+  employment: EmploymentState
 ): void {
   every("processing:complete", matrix.work.processingSweepTicks, (tick) => {
     let changed = false;
@@ -137,11 +228,29 @@ export function startProcessingJob(
       business.storage += stored;
       business.producedTotal += stored;
       adjustStock(prices, content.outputGood, stored);
+      if (job.employeeId && stored > 0) {
+        const progress = recordEmployeeOutput(
+          employment,
+          job.employeeId,
+          stored
+        );
+        const player = world
+          .getAllPlayers()
+          .find((candidate) => candidate.id === job.employeeId);
+        if (player && progress) {
+          actionbar(
+            player,
+            `${tradeDef(job.trade).name} · +${progress.increment} · total ${progress.total}`,
+            "info"
+          );
+        }
+      }
       changed = true;
     }
     if (!changed) return;
     saveProcessing(state);
     saveBusinesses(businesses);
     savePrices(prices);
+    saveEmployment(employment);
   });
 }

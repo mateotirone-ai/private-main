@@ -5,6 +5,4 @@ item.ew:cash_10=Merid Note (10)
 item.ew:cash_100=Merid Note (100)
 item.ew:cash_1000=Merid Note (1000)
 item.ew:wallet=Wallet
-tile.ew:node_depleted.name=Depleted Resource Node
-tile.ew:node_recovering.name=Recovering Resource Node
 tile.ew:fishing_spot.name=Fishing Spot

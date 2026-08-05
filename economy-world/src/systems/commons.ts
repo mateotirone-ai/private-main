@@ -3,13 +3,13 @@
  * Zone regen / gather nodes are Phase D; this is the sell floor.
  */
 import type { Player } from "@minecraft/server";
-import { balance, transfer, type LedgerState } from "../core/ledger";
+import { balance, type LedgerState } from "../core/ledger";
 import { matrix } from "../content/matrix";
-import { commonsZones, tradeDef } from "../content/trades";
+import { allTradeIds, commonsZones, tradeDef } from "../content/trades";
 import { currentTick } from "../core/scheduler";
 import { bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
-import { toast } from "../ui/toast";
+import { feedback } from "../ui/feedback";
 import { menuHub, confirmTxn } from "../ui/patterns";
 import { countItem, takeItems } from "./cash";
 import {
@@ -21,6 +21,23 @@ import {
 import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./pricing";
 import { freelancePayout } from "./pricingMath";
 import { playerAccount } from "./bank";
+import { paySaleCashFromAccount } from "./saleCash";
+
+function displayGood(good: string): string {
+  if (good === "log") return "logs";
+  return good.replaceAll("_", " ");
+}
+
+function wrongCommonsDoor(player: Player, expectedGood: string): string {
+  const heldTrade = allTradeIds().find(
+    (trade) => countItem(player, tradeDef(trade).item) > 0
+  );
+  if (!heldTrade) {
+    return `This desk buys ${displayGood(expectedGood)} — other goods go to their matching business.`;
+  }
+  const destination = tradeDef(heldTrade);
+  return `This desk buys ${displayGood(expectedGood)} — ${displayGood(destination.good)} goes to the ${destination.name}.`;
+}
 
 export async function openCommons(
   player: Player,
@@ -31,10 +48,10 @@ export async function openCommons(
   const zones = commonsZones();
   await menuHub(player, {
     title: "Public Commons",
-    facts: [`Zones: ${zones.length}`, `Freelance rate: ${Math.round(matrix.freelanceRate * 100)}%`],
+    facts: [`Zones: ${zones.length}`, "All sales pay physical cash"],
     narrator: Voice.commonsWelcome,
     buttons: zones.map((z) => ({
-      label: `Sell ${z.good} — ${z.name}`,
+      label: `Sell ${displayGood(z.good)} — ${z.name}`,
       onSelect: () => sellAtZone(player, ledger, bizState, prices, z.trade, z.good, z.name),
     })),
   });
@@ -53,12 +70,12 @@ async function sellAtZone(
   const bizId = `cpu_${tradeId}`;
   const biz = bizState.byId[bizId];
   if (!biz) {
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
     return;
   }
   const qty = countItem(player, def.item);
   if (qty <= 0) {
-    toast(player, Voice.shopNoGoods, "caution");
+    feedback(player, wrongCommonsDoor(player, good), "caution");
     return;
   }
   const unitMarket = currentUnitPrice(prices, good);
@@ -69,34 +86,41 @@ async function sellAtZone(
   const ok = await confirmTxn(player, {
     title: zoneName,
     facts: [
-      `Selling: ${qty} ${good}`,
+      `Selling: ${qty} ${displayGood(good)}`,
       `Market: ${bareAmount(unitMarket)} each`,
-      `Freelance rate: ${Math.round(matrix.freelanceRate * 100)}%`,
+      `You receive: ${merids(payout)} — cash`,
       `Buyer: ${def.name}`,
     ],
-    lines: [{ label: "Payout", amount: payout, sense: "gain" }],
+    lines: [{ label: "Cash payout", amount: payout, sense: "gain" }],
     balanceBefore: before,
-    balanceAfter: before + payout,
+    balanceAfter: before,
     narrator: Voice.commonsWelcome,
   });
   if (!ok) return;
   const taken = takeItems(player, def.item, qty);
   if (taken !== qty) {
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
     return;
   }
   try {
     ensureBizFloat(ledger, bizId, payout);
-    transfer(ledger, bizAccount(bizId), acct, payout, currentTick(), "commons:sell");
+    paySaleCashFromAccount(
+      ledger,
+      player,
+      bizAccount(bizId),
+      payout,
+      currentTick(),
+      "commons:sell"
+    );
     const room = Math.max(0, def.storageCap - biz.storage);
     const stored = Math.min(taken, room);
     biz.storage += stored;
     adjustStock(prices, good, stored);
     saveBusinesses(bizState);
     savePrices(prices);
-    toast(player, Voice.commonsSellOk(`${taken} ${good}`, merids(payout)), "gain");
+    feedback(player, Voice.commonsSellOk(`${taken} ${displayGood(good)}`, merids(payout)), "gain");
   } catch (e) {
     console.error(`[ew] commons sell failed: ${e}`);
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
   }
 }

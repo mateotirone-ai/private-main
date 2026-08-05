@@ -2,8 +2,8 @@ import raw from "../../data/work.json";
 import { matrix } from "./matrix";
 
 export interface ExtractionDef {
-  harvestBlocks: string[];
   readyBlock: string;
+  stageBlocks: { depleted: string; recovering: string };
 }
 
 export interface ProcessingDef {
@@ -14,8 +14,7 @@ export interface ProcessingDef {
 export interface WorkConfig {
   extraction: Record<string, ExtractionDef>;
   processing: Record<string, ProcessingDef>;
-  service: Record<string, { needGood: string }>;
-  stageBlocks: { depleted: string; recovering: string };
+  jobTools: Record<string, Record<string, string>>;
 }
 
 export const workConfig = raw as unknown as WorkConfig;
@@ -34,9 +33,8 @@ export function processingNumbers(trade: string) {
   return cfg;
 }
 
-export function extractionTradeForBlock(blockId: string): string | undefined {
-  for (const [trade, cfg] of Object.entries(workConfig.extraction)) {
-    if (cfg.harvestBlocks.includes(blockId)) return trade;
-  }
-  return undefined;
+export function jobToolItem(trade: string, tier: number): string {
+  const item = workConfig.jobTools[trade]?.[String(tier)];
+  if (!item) throw new Error(`missing company tool for ${trade} tier ${tier}`);
+  return item;
 }

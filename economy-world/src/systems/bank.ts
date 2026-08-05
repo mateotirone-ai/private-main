@@ -19,7 +19,7 @@ import { transferFee } from "../content/matrix";
 import { currentTick } from "../core/scheduler";
 import { Glyph, bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
-import { toast } from "../ui/toast";
+import { feedback } from "../ui/feedback";
 import { menuHub, confirmTxn, managePanel, progressPanel } from "../ui/patterns";
 import { canAffordTransfer, planTransfer } from "./bankMath";
 import { countCarriedCash, takeAllCarriedCash, spawnCash } from "./cash";
@@ -49,7 +49,7 @@ async function depositFlow(player: Player, ledger: LedgerState): Promise<void> {
   const acct = playerAccount(player);
   const { total } = countCarriedCash(player);
   if (total <= 0) {
-    toast(player, Voice.depositEmpty, "caution");
+    feedback(player, Voice.depositEmpty, "caution");
     return;
   }
   const before = balance(ledger, acct);
@@ -66,14 +66,14 @@ async function depositFlow(player: Player, ledger: LedgerState): Promise<void> {
   try {
     const taken = takeAllCarriedCash(player);
     if (taken <= 0) {
-      toast(player, Voice.depositEmpty, "caution");
+      feedback(player, Voice.depositEmpty, "caution");
       return;
     }
     cashIn(ledger, acct, taken, currentTick());
-    toast(player, Voice.depositOk(merids(taken)), "gain");
+    feedback(player, Voice.depositOk(merids(taken)), "gain");
   } catch (e) {
     console.error(`[ew] deposit failed: ${e}`);
-    toast(player, Voice.error, "error");
+    feedback(player, Voice.error, "error");
   }
 }
 
@@ -81,7 +81,7 @@ async function withdrawFlow(player: Player, ledger: LedgerState): Promise<void> 
   const acct = playerAccount(player);
   const before = balance(ledger, acct);
   if (before <= 0) {
-    toast(player, Voice.withdrawFail, "error");
+    feedback(player, Voice.withdrawFail, "error");
     return;
   }
   const panel = await managePanel(player, {
@@ -101,7 +101,7 @@ async function withdrawFlow(player: Player, ledger: LedgerState): Promise<void> 
   if (!panel) return;
   const amount = Math.floor(Number(panel.values[0]));
   if (!Number.isFinite(amount) || amount <= 0 || amount > before) {
-    toast(player, Voice.withdrawFail, "error");
+    feedback(player, Voice.withdrawFail, "error");
     return;
   }
   const ok = await confirmTxn(player, {
@@ -117,12 +117,12 @@ async function withdrawFlow(player: Player, ledger: LedgerState): Promise<void> 
   try {
     cashOut(ledger, acct, amount, currentTick());
     spawnCash(player, amount);
-    toast(player, Voice.withdrawOk(merids(amount)), "caution");
+    feedback(player, Voice.withdrawOk(merids(amount)), "caution");
   } catch (e) {
-    if (e instanceof LedgerError) toast(player, Voice.withdrawFail, "error");
+    if (e instanceof LedgerError) feedback(player, Voice.withdrawFail, "error");
     else {
       console.error(`[ew] withdraw failed: ${e}`);
-      toast(player, Voice.error, "error");
+      feedback(player, Voice.error, "error");
     }
   }
 }
@@ -133,11 +133,11 @@ async function transferFlow(player: Player, ledger: LedgerState): Promise<void> 
   const fee = transferFee();
   const others = world.getAllPlayers().filter((p) => p.id !== player.id);
   if (others.length === 0) {
-    toast(player, Voice.transferNoPlayers, "caution");
+    feedback(player, Voice.transferNoPlayers, "caution");
     return;
   }
   if (before <= fee) {
-    toast(player, Voice.transferFailFunds, "error");
+    feedback(player, Voice.transferFailFunds, "error");
     return;
   }
   const maxSend = before - fee;
@@ -166,11 +166,11 @@ async function transferFlow(player: Player, ledger: LedgerState): Promise<void> 
   const amount = Math.floor(Number(panel.values[1]));
   const target = others[targetIdx];
   if (!target) {
-    toast(player, Voice.transferFailTarget, "error");
+    feedback(player, Voice.transferFailTarget, "error");
     return;
   }
   if (!canAffordTransfer(before, amount, fee)) {
-    toast(player, Voice.transferFailFunds, "error");
+    feedback(player, Voice.transferFailFunds, "error");
     return;
   }
   const plan = planTransfer(amount, fee);
@@ -195,13 +195,13 @@ async function transferFlow(player: Player, ledger: LedgerState): Promise<void> 
     const tick = currentTick();
     if (plan.fee > 0) sink(ledger, acct, plan.fee, tick, "sink:fee");
     transfer(ledger, acct, playerAccount(target), plan.amount, tick, "bank:transfer");
-    toast(player, Voice.transferOk(merids(plan.amount), target.name), "gain");
-    toast(target, Voice.transferOk(merids(plan.amount), player.name), "gain");
+    feedback(player, Voice.transferOk(merids(plan.amount), target.name), "gain");
+    feedback(target, Voice.transferOk(merids(plan.amount), player.name), "gain");
   } catch (e) {
-    if (e instanceof LedgerError) toast(player, Voice.transferFailFunds, "error");
+    if (e instanceof LedgerError) feedback(player, Voice.transferFailFunds, "error");
     else {
       console.error(`[ew] transfer failed: ${e}`);
-      toast(player, Voice.error, "error");
+      feedback(player, Voice.error, "error");
     }
   }
 }

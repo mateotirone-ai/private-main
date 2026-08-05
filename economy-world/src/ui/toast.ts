@@ -16,6 +16,14 @@ const KIND_INK: Record<ToastKind, string> = {
   error: Ink.signalRed,
 };
 
+const KIND_MARK: Record<ToastKind, string> = {
+  gain: "+",
+  loss: "−",
+  caution: "!",
+  info: "•",
+  error: "!",
+};
+
 export function compactToastLine(text: string, max: number): string {
   const clean = text.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
@@ -34,29 +42,20 @@ export function compactToastLine(text: string, max: number): string {
 export function formatToastText(message: string): { title: string; subtitle?: string } {
   const cfg = matrix.ui.toast;
   const clean = message.replace(/\s+/g, " ").trim();
-  const sentenceEnd = clean.search(/[.!?](?:\s|$)/);
-  const splitAt =
-    sentenceEnd >= 0 && sentenceEnd + 1 <= cfg.maxTitleChars
-      ? sentenceEnd + 1
-      : clean.lastIndexOf(" ", cfg.maxTitleChars);
-  if (splitAt <= 0) {
-    return { title: compactToastLine(clean, cfg.maxTitleChars) };
-  }
-  const title = compactToastLine(clean.slice(0, splitAt), cfg.maxTitleChars);
-  const rest = clean.slice(splitAt).trim();
-  return {
-    title,
-    subtitle: rest ? compactToastLine(rest, cfg.maxSubtitleChars) : undefined,
-  };
+  return { title: compactToastLine(clean, cfg.maxChars) };
 }
 
-/** High-contrast, couch-legible title + optional short subtitle. */
+/**
+ * Subtitle-only toast. Bedrock title text is intrinsically oversized; keeping
+ * the title blank prevents scaling past the toast box.
+ */
 export function toast(player: Player, message: string, kind: ToastKind = "info"): void {
   const color = KIND_INK[kind];
   const cfg = matrix.ui.toast;
   const lines = formatToastText(message);
-  player.onScreenDisplay.setTitle(`${Ink.bold}${color}${lines.title}${Ink.reset}`, {
-    subtitle: lines.subtitle ? `${Ink.paper}${lines.subtitle}${Ink.reset}` : undefined,
+  const marker = `${color}${KIND_MARK[kind]}${Ink.reset}`;
+  player.onScreenDisplay.setTitle(`${Ink.reset} `, {
+    subtitle: `${marker} ${Ink.paper}${lines.title}${Ink.reset}`,
     fadeInDuration: cfg.fadeInTicks,
     stayDuration: cfg.stayTicks,
     fadeOutDuration: cfg.fadeOutTicks,

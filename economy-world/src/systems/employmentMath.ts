@@ -1,4 +1,4 @@
-export interface WageSession {
+export interface PieceRateSession {
   playerId: string;
   businessId: string;
   tier: number;
@@ -6,16 +6,13 @@ export interface WageSession {
   output: number;
 }
 
-/** Binding rounding rule: compute the total wage, then round once. */
-export function wagePayout(
-  wagePerHour: number,
-  elapsedTicks: number,
-  ticksPerHour: number
-): number {
-  if (wagePerHour < 0 || elapsedTicks < 0 || ticksPerHour <= 0) {
-    throw new Error("invalid wage inputs");
+/** Binding rounding rule: rate × total shift output, rounded once. */
+export function pieceRatePayout(ratePerUnit: number, output: number): number {
+  if (ratePerUnit < 0 || !Number.isInteger(output) || output < 0) {
+    throw new Error("invalid piece-rate inputs");
   }
-  return Math.max(0, Math.round((wagePerHour * elapsedTicks) / ticksPerHour));
+  if (output === 0) return 0;
+  return Math.max(1, Math.round(ratePerUnit * output));
 }
 
 export interface PresenceMultipliers {

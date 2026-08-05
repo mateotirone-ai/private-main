@@ -1,6 +1,6 @@
 /**
  * Physical cash items — ew:cash_1/10/100/1000 + ew:wallet carry.
- * ONLY Bank.withdraw spawns new cash into the world (layer1 §3).
+ * Bank.withdraw and player-sale settlement spawn ledger-backed cash.
  * Wallet packs/unpacks existing notes so inventory stays tidy.
  */
 import type { Player, Container } from "@minecraft/server";

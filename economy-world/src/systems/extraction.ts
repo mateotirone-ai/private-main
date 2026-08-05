@@ -7,20 +7,17 @@ import {
   system,
   world,
   type Dimension,
+  type ItemStack,
   type Player,
   type Vector3,
 } from "@minecraft/server";
 import { loadBlob, saveBlob } from "../core/state";
 import { every, currentTick } from "../core/scheduler";
 import { matrix } from "../content/matrix";
-import {
-  extractionDef,
-  extractionTradeForBlock,
-  workConfig,
-} from "../content/work";
+import { extractionDef } from "../content/work";
 import { tradeDef } from "../content/trades";
-import { actionbar, toast } from "../ui/toast";
-import { bareAmount } from "../ui/theme";
+import { actionbar } from "../ui/toast";
+import { speakAs } from "../ui/feedback";
 import { saveBusinesses, type BusinessesState } from "./businesses";
 import {
   employmentSession,
@@ -28,31 +25,37 @@ import {
   saveEmployment,
   type EmploymentState,
 } from "./employment";
-import { wagePayout } from "./employmentMath";
 import {
   advanceNode,
+  nodePositionKey,
+  registeredNodeAccess,
+  stampedNodeLocations,
   type NodeStage,
   type ResourceNode,
 } from "./nodeMath";
 import { adjustStock, savePrices, type PricesState } from "./pricing";
 import { giveItem } from "./cash";
+import { companyToolMarker } from "./companyTools";
+import { companyToolCanUse } from "./companyToolPolicy";
 
 export interface WorkZone {
   id: string;
   businessId: string;
+  trade: string;
   dimensionId: string;
   center: Vector3;
-  radius: number;
   public: boolean;
+  nodeIds: string[];
 }
 
 export interface WorldResourceNode extends ResourceNode {
+  zoneId: string;
   dimensionId: string;
   location: Vector3;
 }
 
 export interface ExtractionState {
-  schema: 1;
+  schema: 2;
   zones: Record<string, WorkZone>;
   nodes: Record<string, WorldResourceNode>;
 }
@@ -60,11 +63,13 @@ export interface ExtractionState {
 const KEY = "ew:extraction";
 
 export function emptyExtraction(): ExtractionState {
-  return { schema: 1, zones: {}, nodes: {} };
+  return { schema: 2, zones: {}, nodes: {} };
 }
 
 export function loadExtraction(): ExtractionState {
-  return loadBlob<ExtractionState>(KEY) ?? emptyExtraction();
+  const state = loadBlob<ExtractionState>(KEY);
+  // Phase D live-test ruling invalidates pre-stamp zones/nodes.
+  return state?.schema === 2 ? state : emptyExtraction();
 }
 
 export function saveExtraction(state: ExtractionState): void {
@@ -74,10 +79,12 @@ export function saveExtraction(state: ExtractionState): void {
 export function registerWorkZone(
   state: ExtractionState,
   businessId: string,
-  dimensionId: string,
+  trade: string,
+  dimension: Dimension,
   center: Vector3,
   publicZone = false
 ): WorkZone {
+  const dimensionId = dimension.id;
   const id = [
     businessId,
     dimensionId,
@@ -86,54 +93,59 @@ export function registerWorkZone(
     Math.floor(center.z),
     publicZone ? "public" : "employee",
   ].join(":");
+  const previous = state.zones[id];
+  for (const previousNodeId of previous?.nodeIds ?? []) {
+    delete state.nodes[previousNodeId];
+  }
   const zone: WorkZone = {
     id,
     businessId,
+    trade,
     dimensionId,
-    center: { x: center.x, y: center.y, z: center.z },
-    radius: matrix.work.zoneRadius,
+    center: {
+      x: Math.floor(center.x),
+      y: Math.floor(center.y),
+      z: Math.floor(center.z),
+    },
     public: publicZone,
+    nodeIds: [],
   };
+  const def = extractionDef(trade);
+  if (!def) throw new Error(`missing extraction definition for ${trade}`);
+  for (const location of stampedNodeLocations(
+    zone.center,
+    matrix.work.nodeStampOffsets
+  )) {
+    const id = nodePositionKey(dimensionId, location);
+    state.nodes[id] = {
+      id,
+      zoneId: zone.id,
+      trade,
+      readyBlock: def.readyBlock,
+      stage: "ready",
+      harvestedTick: 0,
+      dimensionId,
+      location,
+    };
+    zone.nodeIds.push(id);
+    dimension.getBlock(location)?.setType(def.readyBlock);
+  }
   state.zones[id] = zone;
   saveExtraction(state);
   return zone;
 }
 
-export function isInsideZone(
-  zone: WorkZone,
-  dimensionId: string,
-  location: Vector3
-): boolean {
-  if (zone.dimensionId !== dimensionId) return false;
-  const dx = location.x - zone.center.x;
-  const dy = location.y - zone.center.y;
-  const dz = location.z - zone.center.z;
-  return dx * dx + dy * dy + dz * dz <= zone.radius * zone.radius;
-}
-
-function nodeId(dimensionId: string, location: Vector3): string {
-  return `${dimensionId}:${location.x}:${location.y}:${location.z}`;
-}
-
 function setStageBlock(
   dimension: Dimension,
   location: Vector3,
-  stage: NodeStage,
-  readyBlock: string
+  trade: string,
+  stage: NodeStage
 ): void {
   const block = dimension.getBlock(location);
   if (!block) return;
-  if (stage === "ready") block.setType(readyBlock);
-  else block.setType(workConfig.stageBlocks[stage]);
-}
-
-function pendingWage(session: NonNullable<ReturnType<typeof employmentSession>>): number {
-  const wage = matrix.wagePerHourByTier[String(session.tier)] ?? 0;
-  return wagePayout(
-    wage,
-    currentTick() - session.paidThroughTick,
-    matrix.work.employment.ticksPerHour
-  );
+  const def = extractionDef(trade);
+  if (!def) throw new Error(`missing extraction definition for ${trade}`);
+  block.setType(stage === "ready" ? def.readyBlock : def.stageBlocks[stage]);
 }
 
 export function startExtractionSystem(
@@ -142,6 +154,31 @@ export function startExtractionSystem(
   prices: PricesState,
   employment: EmploymentState
 ): void {
+  const blockRestrictedCompanyTool = (
+    player: Player,
+    item: ItemStack | undefined,
+    dimension: Dimension,
+    location: Vector3,
+    cancel: () => void
+  ): boolean => {
+    const marker = companyToolMarker(item);
+    if (!marker) return false;
+    const node = extraction.nodes[nodePositionKey(dimension.id, location)];
+    const nodeBusinessId = node
+      ? extraction.zones[node.zoneId]?.businessId
+      : undefined;
+    if (companyToolCanUse(marker, nodeBusinessId, player.id)) return false;
+    cancel();
+    system.run(() =>
+      speakAs(
+        player,
+        tradeDef(marker.trade).name,
+        "That company tool only works on this business's registered nodes."
+      )
+    );
+    return true;
+  };
+
   const attemptHarvest = (
     player: Player,
     dimension: Dimension,
@@ -149,70 +186,67 @@ export function startExtractionSystem(
     blockTypeId: string,
     cancel: () => void
   ): void => {
-    const trade = extractionTradeForBlock(blockTypeId);
-    if (!trade) return;
-    const session = employmentSession(employment, player.id);
-    const employedBusiness = session
-      ? businesses.byId[session.businessId]
-      : undefined;
-    const zone = Object.values(extraction.zones).find((candidate) => {
-      const zoneBusiness = businesses.byId[candidate.businessId];
-      if (!zoneBusiness || zoneBusiness.trade !== trade) return false;
-      if (!isInsideZone(candidate, dimension.id, location)) {
-        return false;
-      }
-      return candidate.public || candidate.businessId === employedBusiness?.id;
-    });
+    const id = nodePositionKey(dimension.id, location);
+    const node = extraction.nodes[id];
+    if (!node) return;
+    const zone = extraction.zones[node.zoneId];
     if (!zone) return;
     const business = businesses.byId[zone.businessId];
     if (!business) return;
-    const employed = !zone.public && session?.businessId === business.id;
+    const session = employmentSession(employment, player.id);
+    const access = registeredNodeAccess(
+      true,
+      zone.public,
+      zone.businessId,
+      session?.businessId
+    );
 
+    if (access === "protected") {
+      cancel();
+      system.run(() =>
+        speakAs(
+          player,
+          tradeDef(node.trade).name,
+          `This is ${tradeDef(node.trade).name} property — clock in first.`
+        )
+      );
+      return;
+    }
+    if (access === "inert") return;
     cancel();
-    const def = tradeDef(trade);
-    const extractionCfg = extractionDef(trade);
-    if (!extractionCfg) return;
+    if (node.stage !== "ready" || blockTypeId !== node.readyBlock) return;
+
+    const def = tradeDef(node.trade);
+    const employed = !zone.public && session?.businessId === business.id;
     if (employed && business.storage >= def.storageCap) {
-      system.run(() => toast(player, "Business storage is full.", "caution"));
+      system.run(() =>
+        speakAs(player, def.name, "Business storage is full. Come back after stock moves.")
+      );
       return;
     }
 
-    const dimensionId = dimension.id;
-    const capturedLocation = { ...location };
     system.run(() => {
+      let progress: ReturnType<typeof recordEmployeeOutput> = undefined;
       if (employed && session) {
         business.storage += 1;
         business.producedTotal += 1;
-        recordEmployeeOutput(employment, player.id, 1);
+        progress = recordEmployeeOutput(employment, player.id, 1);
         adjustStock(prices, def.good, 1);
       } else {
         giveItem(player, def.item, 1);
       }
 
-      const id = nodeId(dimensionId, capturedLocation);
-      extraction.nodes[id] = {
-        id,
-        trade,
-        readyBlock: extractionCfg.readyBlock,
-        stage: "depleted",
-        harvestedTick: currentTick(),
-        dimensionId,
-        location: capturedLocation,
-      };
-      setStageBlock(
-        dimension,
-        capturedLocation,
-        "depleted",
-        extractionCfg.readyBlock
-      );
+      node.stage = "depleted";
+      node.harvestedTick = currentTick();
+      setStageBlock(dimension, node.location, node.trade, node.stage);
       saveExtraction(extraction);
       saveBusinesses(businesses);
       saveEmployment(employment);
       savePrices(prices);
-      if (employed && session) {
+      if (employed && session && progress) {
         actionbar(
           player,
-          `${def.name} · output ${session.output} · earned ${bareAmount(pendingWage(session))}`,
+          `${def.name} · +${progress.increment} · total ${progress.total}`,
           "info"
         );
       }
@@ -220,6 +254,19 @@ export function startExtractionSystem(
   };
 
   world.beforeEvents.playerBreakBlock.subscribe((ev) => {
+    if (
+      blockRestrictedCompanyTool(
+        ev.player,
+        ev.itemStack,
+        ev.block.dimension,
+        ev.block.location,
+        () => {
+          ev.cancel = true;
+        }
+      )
+    ) {
+      return;
+    }
     attemptHarvest(
       ev.player,
       ev.block.dimension,
@@ -233,6 +280,19 @@ export function startExtractionSystem(
 
   world.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
     if (!ev.isFirstEvent) return;
+    if (
+      blockRestrictedCompanyTool(
+        ev.player,
+        ev.itemStack,
+        ev.block.dimension,
+        ev.block.location,
+        () => {
+          ev.cancel = true;
+        }
+      )
+    ) {
+      return;
+    }
     attemptHarvest(
       ev.player,
       ev.block.dimension,
@@ -249,7 +309,7 @@ export function startExtractionSystem(
     for (const node of Object.values(extraction.nodes)) {
       if (!advanceNode(node, tick, matrix.work.nodeStages)) continue;
       const dimension = world.getDimension(node.dimensionId);
-      setStageBlock(dimension, node.location, node.stage, node.readyBlock);
+      setStageBlock(dimension, node.location, node.trade, node.stage);
       changed = true;
     }
     if (changed) saveExtraction(extraction);
@@ -260,12 +320,14 @@ export function registerPlayerZone(
   state: ExtractionState,
   player: Player,
   businessId: string,
+  trade: string,
   publicZone = false
 ): WorkZone {
   return registerWorkZone(
     state,
     businessId,
-    player.dimension.id,
+    trade,
+    player.dimension,
     player.location,
     publicZone
   );

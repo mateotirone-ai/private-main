@@ -13,6 +13,48 @@ export interface NodeTiming {
   recoveringTicks: number;
 }
 
+export interface NodeVector {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export type RegisteredNodeAccess = "inert" | "protected" | "allowed";
+
+export function nodePositionKey(
+  dimensionId: string,
+  location: NodeVector
+): string {
+  return `${dimensionId}:${location.x}:${location.y}:${location.z}`;
+}
+
+export function stampedNodeLocations(
+  center: NodeVector,
+  offsets: readonly NodeVector[]
+): NodeVector[] {
+  const base = {
+    x: Math.floor(center.x),
+    y: Math.floor(center.y),
+    z: Math.floor(center.z),
+  };
+  return offsets.map((offset) => ({
+    x: base.x + offset.x,
+    y: base.y + offset.y,
+    z: base.z + offset.z,
+  }));
+}
+
+export function registeredNodeAccess(
+  registered: boolean,
+  publicZone: boolean,
+  zoneBusinessId: string,
+  sessionBusinessId?: string
+): RegisteredNodeAccess {
+  if (!registered) return "inert";
+  if (publicZone || sessionBusinessId === zoneBusinessId) return "allowed";
+  return "protected";
+}
+
 export function nodeStageAt(
   harvestedTick: number,
   nowTick: number,

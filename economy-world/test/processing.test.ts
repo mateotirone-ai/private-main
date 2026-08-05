@@ -29,4 +29,32 @@ describe("processing conversion", () => {
       startProcessing("station", "sawmill", 0, recipe.inputQty - 1, recipe)
     ).toThrow(/insufficient processing input/);
   });
+
+  it("reserves selected batches and completes them sequentially", () => {
+    const started = startProcessing(
+      "station",
+      "sawmill",
+      50,
+      recipe.inputQty * 3,
+      recipe,
+      "worker",
+      3
+    );
+    expect(started.inputStockAfter).toBe(0);
+    expect(started.job.batchesTotal).toBe(3);
+
+    expect(completeProcessing(started.job, started.job.dueTick)).toBe(
+      recipe.outputQty
+    );
+    expect(started.job.complete).toBe(false);
+    expect(started.job.batchesCompleted).toBe(1);
+    expect(completeProcessing(started.job, started.job.dueTick)).toBe(
+      recipe.outputQty
+    );
+    expect(started.job.batchesCompleted).toBe(2);
+    expect(completeProcessing(started.job, started.job.dueTick)).toBe(
+      recipe.outputQty
+    );
+    expect(started.job.complete).toBe(true);
+  });
 });
