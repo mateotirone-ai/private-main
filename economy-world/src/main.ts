@@ -1,6 +1,6 @@
 /**
- * ECONOMY WORLD — Phase D boot.
- * A: ledger · B: bank/dealer · C: prices/trades · D: work/employment
+ * ECONOMY WORLD — Phase E boot.
+ * A: ledger · B: bank/dealer · C: prices/trades · D: work/employment · E: ownership
  *
  * Early-execution rule (Bedrock 1.26+): no world touches at module top-level.
  * All boot + world event subscriptions run inside system.run(...).
@@ -25,6 +25,7 @@ import {
   saveBusinesses,
   startBusinessJobs,
   listCpuBusinesses,
+  storefrontBusinessForTrade,
   runCpuProduction,
   type BusinessesState,
 } from "./systems/businesses";
@@ -58,9 +59,15 @@ import {
   forceSpawnCustomerNeed,
   loadService,
   openServiceCustomer,
+  registerServiceHost,
   startServiceJob,
   type ServiceState,
 } from "./systems/service";
+import {
+  openOwnershipPanel,
+  setSuccessorSpawnHook,
+  startOwnershipJobs,
+} from "./systems/ownership";
 
 const LEDGER_KEY = "ew:ledger";
 let ledger: LedgerState;
@@ -145,7 +152,13 @@ function boot(): void {
     pricesState,
     employmentState
   );
-  startServiceJob(serviceState);
+  startServiceJob(serviceState, bizState, employmentState);
+  setSuccessorSpawnHook((payload) => {
+    console.log(
+      `[ew] successor ready ${payload.successorId} from ${payload.predecessorId} (${payload.trade}) offset ${payload.offset.x},${payload.offset.y},${payload.offset.z}`
+    );
+  });
+  startOwnershipJobs(bizState);
 
   system.afterEvents.scriptEventReceive.subscribe((ev) => {
     if (ev.id === "ew:dev") {
@@ -172,12 +185,12 @@ function boot(): void {
       }
       if (ev.message.startsWith("shop ") && player) {
         const trade = ev.message.slice(5).trim();
-        const id = `cpu_${trade}`;
-        if (!bizState.byId[id]) {
+        const business = storefrontBusinessForTrade(bizState, trade);
+        if (!business) {
           world.sendMessage(`§c[dev] unknown shop trade: ${trade}`);
           return;
         }
-        void openStorefront(player, ledger, bizState, pricesState, id);
+        void openStorefront(player, ledger, bizState, pricesState, business.id);
       }
       if (ev.message === "shops" && player) {
         const list = listCpuBusinesses(bizState)
@@ -242,6 +255,15 @@ function boot(): void {
           trade
         );
       }
+      if (ev.message.startsWith("owner ") && player) {
+        const target = ev.message.slice(6).trim();
+        const business = bizState.byId[target];
+        if (business) {
+          void openOwnershipPanel(player, ledger, bizState, business.trade, business.id);
+        } else {
+          void openOwnershipPanel(player, ledger, bizState, target);
+        }
+      }
       if (ev.message.startsWith("need ")) {
         const trade = ev.message.slice(5).trim();
         const businessId = `cpu_${trade}`;
@@ -249,7 +271,7 @@ function boot(): void {
           world.sendMessage(`§c[dev] unknown service trade: ${trade}`);
           return;
         }
-        forceSpawnCustomerNeed(serviceState, trade, currentTick());
+        forceSpawnCustomerNeed(serviceState, trade, currentTick(), player);
         world.sendMessage(`§a[dev] forced one customer need for ${trade}`);
       }
       return;
@@ -267,8 +289,10 @@ function boot(): void {
       }
       if (ev.message.startsWith("shop ")) {
         const trade = ev.message.slice(5).trim();
-        const id = `cpu_${trade}`;
-        if (bizState.byId[id]) void openStorefront(player, ledger, bizState, pricesState, id);
+        const business = storefrontBusinessForTrade(bizState, trade);
+        if (business) {
+          void openStorefront(player, ledger, bizState, pricesState, business.id);
+        }
       }
       if (ev.message.startsWith("station ")) {
         const trade = ev.message.slice(8).trim();
@@ -294,6 +318,15 @@ function boot(): void {
           employmentState,
           trade
         );
+      }
+      if (ev.message.startsWith("owner ")) {
+        const target = ev.message.slice(6).trim();
+        const business = bizState.byId[target];
+        if (business) {
+          void openOwnershipPanel(player, ledger, bizState, business.trade, business.id);
+        } else {
+          void openOwnershipPanel(player, ledger, bizState, target);
+        }
       }
     }
   });
@@ -367,35 +400,78 @@ function boot(): void {
         const player = ev.player;
         const hostId = ev.target.id;
         const speaker = ev.target.nameTag || tradeDef(trade).name;
+        const hostDimension = ev.target.dimension.id;
+        const hostLocation = ev.target.location;
         system.run(
           () =>
             void withNpcSpeaker(player, speaker, () =>
-              openServiceCustomer(
-                player,
-                ledger,
-                serviceState,
-                bizState,
-                pricesState,
-                employmentState,
-                trade,
-                hostId
-              )
+              {
+                registerServiceHost(
+                  serviceState,
+                  hostId,
+                  trade,
+                  hostDimension,
+                  hostLocation,
+                  speaker,
+                  storefrontBusinessForTrade(bizState, trade)?.id
+                );
+                return openServiceCustomer(
+                  player,
+                  ledger,
+                  serviceState,
+                  bizState,
+                  pricesState,
+                  employmentState,
+                  trade,
+                  hostId
+                );
+              }
             )
         );
         return;
       }
       const shopTag = tags.find((t) => t.startsWith("ew:shop_"));
+      const bizTag = tags.find((t) => t.startsWith("ew:biz_"));
+      const ownerTag = tags.find((t) => t.startsWith("ew:owner_"));
+      if (ownerTag) {
+        ev.cancel = true;
+        const trade = ownerTag.slice("ew:owner_".length);
+        const player = ev.player;
+        const speaker = ev.target.nameTag || `${tradeDef(trade).name} Foreman`;
+        system.run(
+          () =>
+            void withNpcSpeaker(player, speaker, () =>
+              openOwnershipPanel(player, ledger, bizState, trade)
+            )
+        );
+        return;
+      }
+      if (bizTag) {
+        ev.cancel = true;
+        const businessId = bizTag.slice("ew:biz_".length);
+        const business = bizState.byId[businessId];
+        if (!business) return;
+        const player = ev.player;
+        const speaker = ev.target.nameTag || tradeDef(business.trade).name;
+        system.run(
+          () =>
+            void withNpcSpeaker(player, speaker, () =>
+              openStorefront(player, ledger, bizState, pricesState, businessId)
+            )
+        );
+        return;
+      }
       if (shopTag) {
         ev.cancel = true;
         const trade = shopTag.slice("ew:shop_".length);
-        const id = `cpu_${trade}`;
-        if (bizState.byId[id]) {
+        const business = storefrontBusinessForTrade(bizState, trade);
+        if (business) {
           const player = ev.player;
           const speaker = ev.target.nameTag || tradeDef(trade).name;
           system.run(
             () =>
               void withNpcSpeaker(player, speaker, () =>
-                openStorefront(player, ledger, bizState, pricesState, id)
+                openStorefront(player, ledger, bizState, pricesState, business.id)
               )
           );
         } else {
@@ -431,7 +507,7 @@ function boot(): void {
   const tradeNames = listCpuBusinesses(bizState)
     .map((b) => tradeDef(b.trade).name)
     .join(", ");
-  console.log(`[ew] Economy World Phase D booted. CPU shops: ${tradeNames}`);
+  console.log(`[ew] Economy World Phase E booted. CPU shops: ${tradeNames}`);
 }
 
 system.run(boot);

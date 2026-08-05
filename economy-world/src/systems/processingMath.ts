@@ -12,6 +12,7 @@ export interface ProcessingJob {
   durationTicks: number;
   inputQty: number;
   outputQty: number;
+  outputShelvedTotal: number;
   batchesTotal: number;
   batchesCompleted: number;
   employeeId?: string;
@@ -53,6 +54,7 @@ export function startProcessing(
       durationTicks: recipe.durationTicks,
       inputQty: recipe.inputQty,
       outputQty: recipe.outputQty,
+      outputShelvedTotal: 0,
       batchesTotal: batches,
       batchesCompleted: 0,
       employeeId,

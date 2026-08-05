@@ -28,13 +28,53 @@ export interface Matrix {
       string,
       { inputTrade: string; inputQty: number; outputQty: number; durationTicks: number }
     >;
-    service: { spawnEveryTicks: number; requestQty: number; activeMarginBonus: number };
+    service: {
+      spawnEveryTicks: number;
+      requestQtyMin: number;
+      requestQtyMax: number;
+      largeOrderChance: number;
+      largeOrderQtyMin: number;
+      largeOrderQtyMax: number;
+      activeMarginBonus: number;
+    };
     employment: {
       cpuMultiplier: number;
       offlineOwnerMultiplier: number;
       activeOwnerMultiplier: number;
+      offlineEmployeeStep: number;
+      offlineEmployeeCap: number;
       toolQualityByTier: Record<string, number>;
       pieceRateByTradeTier: Record<string, Record<string, number>>;
+    };
+  };
+  ownership: {
+    revenueWindowTicks: number;
+    revenueHistoryCap: number;
+    tierOutputMultiplierByTier: Record<string, number>;
+    evaluation: {
+      tierBaseByTier: Record<string, number>;
+      inventoryUnitValueFactor: number;
+      recentRevenueFactor: number;
+      upgradeValueFactor: number;
+      locationFactorByTrade: Record<string, number>;
+    };
+    auction: {
+      bankBidMinPct: number;
+      bankBidMaxPct: number;
+      cpuBidMinPct: number;
+      cpuBidMaxPct: number;
+      luckBoostChance: number;
+      luckBoostMinPct: number;
+      luckBoostMaxPct: number;
+    };
+    management: {
+      priceOverrideMinPct: number;
+      priceOverrideMaxPct: number;
+      maxEmployeeSlots: number;
+      employeeSlotHireCost: number;
+      upgradeCostByTradeTier: Record<string, Record<string, number>>;
+      upgradeDurationTicksByTier: Record<string, number>;
+      successorSpawnOffset: { x: number; y: number; z: number };
     };
   };
   dealer: {

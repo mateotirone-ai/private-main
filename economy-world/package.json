@@ -1,8 +1,8 @@
 {
   "name": "economy-world",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "private": true,
-  "description": "Economy World - Minecraft Bedrock add-on. Phase D: work engines + employment.",
+  "description": "Economy World - Minecraft Bedrock add-on. Phase E: ownership, auctions, upgrades.",
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",

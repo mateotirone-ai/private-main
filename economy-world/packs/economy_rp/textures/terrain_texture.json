@@ -4,6 +4,6 @@
   "padding": 8,
   "num_mip_levels": 4,
   "texture_data": {
-    "ew_fishing_spot": { "textures": "textures/blocks/lapis_block" }
+    "ew_fishing_spot": { "textures": "textures/blocks/fishing_spot" }
   }
 }

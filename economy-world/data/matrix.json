@@ -39,16 +39,22 @@
       "bakery": { "inputTrade": "crop_farm", "inputQty": 3, "outputQty": 2, "durationTicks": 160 }
     },
     "service": {
-      "_comment": "⚑ CPU customer cadence/order size/active margin bonus are not quantified.",
+      "_comment": "⚑ CPU customer cadence/order ranges/large-order chance/active margin bonus are not quantified.",
       "spawnEveryTicks": 600,
-      "requestQty": 2,
+      "requestQtyMin": 1,
+      "requestQtyMax": 4,
+      "largeOrderChance": 0.08,
+      "largeOrderQtyMin": 6,
+      "largeOrderQtyMax": 10,
       "activeMarginBonus": 0.2
     },
     "employment": {
-      "_comment": "⚑ Piece rates and company-tool quality tiers are live-test placeholders. Owner presence multipliers are locked by master design.",
+      "_comment": "⚑ Piece rates/company-tool quality/employee-offline lift are placeholders. Core owner/cpu multipliers follow the master design.",
       "cpuMultiplier": 0.1,
       "offlineOwnerMultiplier": 0.5,
       "activeOwnerMultiplier": 1,
+      "offlineEmployeeStep": 0.12,
+      "offlineEmployeeCap": 0.9,
       "toolQualityByTier": { "1": 1, "2": 2 },
       "pieceRateByTradeTier": {
         "stone_quarry": { "1": 2, "2": 3 },
@@ -62,6 +68,59 @@
         "fishery": { "1": 2, "2": 3 },
         "general_store": { "1": 2, "2": 3 }
       }
+    }
+  },
+  "ownership": {
+    "_comment": "⚑ Phase E ownership tuning placeholders: valuation weights, auction spread/luck, upgrades, successor placement.",
+    "revenueWindowTicks": 24000,
+    "revenueHistoryCap": 128,
+    "tierOutputMultiplierByTier": { "1": 1, "2": 1.35, "3": 1.7 },
+    "evaluation": {
+      "tierBaseByTier": { "1": 2500, "2": 5500, "3": 9000 },
+      "inventoryUnitValueFactor": 1,
+      "recentRevenueFactor": 0.4,
+      "upgradeValueFactor": 0.6,
+      "locationFactorByTrade": {
+        "stone_quarry": 1,
+        "ore_mine": 1.05,
+        "precious_mine": 1.25,
+        "lumber_camp": 1,
+        "crop_farm": 1,
+        "sawmill": 1.08,
+        "smeltery": 1.12,
+        "bakery": 1.06,
+        "fishery": 1.02,
+        "general_store": 1.1
+      }
+    },
+    "auction": {
+      "bankBidMinPct": 0.9,
+      "bankBidMaxPct": 1.08,
+      "cpuBidMinPct": 0.86,
+      "cpuBidMaxPct": 1.04,
+      "luckBoostChance": 0.08,
+      "luckBoostMinPct": 0.03,
+      "luckBoostMaxPct": 0.1
+    },
+    "management": {
+      "priceOverrideMinPct": 0.8,
+      "priceOverrideMaxPct": 1.25,
+      "maxEmployeeSlots": 4,
+      "employeeSlotHireCost": 250,
+      "upgradeCostByTradeTier": {
+        "stone_quarry": { "2": 5000, "3": 9500 },
+        "ore_mine": { "2": 8000, "3": 15000 },
+        "precious_mine": { "2": 25000, "3": 42000 },
+        "lumber_camp": { "2": 5000, "3": 9500 },
+        "crop_farm": { "2": 4000, "3": 7600 },
+        "sawmill": { "2": 7000, "3": 12500 },
+        "smeltery": { "2": 9000, "3": 16000 },
+        "bakery": { "2": 6000, "3": 10500 },
+        "fishery": { "2": 4400, "3": 8200 },
+        "general_store": { "2": 10000, "3": 18000 }
+      },
+      "upgradeDurationTicksByTier": { "2": 2400, "3": 3600 },
+      "successorSpawnOffset": { "x": 6, "y": 0, "z": 0 }
     }
   },
   "dealer": {

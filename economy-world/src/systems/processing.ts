@@ -19,7 +19,11 @@ import { feedback } from "../ui/feedback";
 import { balance } from "../core/ledger";
 import type { LedgerState } from "../core/ledger";
 import { playerAccount } from "./bank";
-import { saveBusinesses, type BusinessesState } from "./businesses";
+import {
+  saveBusinesses,
+  storefrontBusinessForTrade,
+  type BusinessesState,
+} from "./businesses";
 import {
   completeProcessing,
   startProcessing,
@@ -46,6 +50,26 @@ function displayGood(good: string, qty: number): string {
   return good.replaceAll("_", " ");
 }
 
+function announceQueueComplete(
+  stationId: string,
+  trade: string,
+  outputQty: number
+): void {
+  const station = world.getEntity(stationId);
+  const speaker = station?.nameTag || tradeDef(trade).name;
+  const line = `[${speaker}] Last batch is out — ${outputQty} ${displayGood(tradeDef(trade).good, outputQty)} on the shelves.`;
+  if (!station) {
+    world.sendMessage(`§e${line}`);
+    return;
+  }
+  const listeners = station.dimension.getPlayers({
+    location: station.location,
+    maxDistance: 24,
+  });
+  if (!listeners.length) return;
+  for (const player of listeners) player.sendMessage(`§e${line}`);
+}
+
 export function emptyProcessing(): ProcessingState {
   return { schema: 2, jobs: {} };
 }
@@ -57,6 +81,7 @@ export function loadProcessing(): ProcessingState {
     job.durationTicks ??= job.dueTick - job.startedTick;
     job.batchesTotal ??= 1;
     job.batchesCompleted ??= job.complete ? 1 : 0;
+    job.outputShelvedTotal ??= 0;
   }
   return state;
 }
@@ -81,8 +106,8 @@ export async function openProcessingStation(
     return;
   }
   const numbers = processingNumbers(trade);
-  const inputBusiness = businesses.byId[`cpu_${numbers.inputTrade}`];
-  const outputBusiness = businesses.byId[`cpu_${trade}`];
+  const inputBusiness = storefrontBusinessForTrade(businesses, numbers.inputTrade);
+  const outputBusiness = storefrontBusinessForTrade(businesses, trade);
   if (!inputBusiness || !outputBusiness) {
     feedback(player, "Processing businesses are unavailable.", "error");
     return;
@@ -98,7 +123,7 @@ export async function openProcessingStation(
     const remainingSeconds = Math.ceil(
       remainingTicks / matrix.work.processingTicksPerSecond
     );
-    const queued = active.batchesTotal - active.batchesCompleted;
+    const currentBatch = Math.min(active.batchesCompleted + 1, active.batchesTotal);
     await progressPanel(player, {
       title: `${tradeDef(trade).name} station`,
       facts: [
@@ -106,7 +131,7 @@ export async function openProcessingStation(
         `Business refined stock: ${outputBusiness.storage} ${displayGood(content.outputGood, outputBusiness.storage)}`,
         `Personal inventory: ${personalRaw} ${displayGood(content.inputGood, personalRaw)}`,
         `Running: ${numbers.inputQty} ${displayGood(content.inputGood, numbers.inputQty)} → ${numbers.outputQty} ${displayGood(content.outputGood, numbers.outputQty)}, ${remainingSeconds}s`,
-        `Queue remaining: ${queued} ${queued === 1 ? "batch" : "batches"}`,
+        `Queue: ${currentBatch} of ${active.batchesTotal}`,
         "Processing uses business stock, never personal inventory",
       ],
       narrator: "Refinement is mostly waiting with paperwork.",
@@ -218,13 +243,15 @@ export function startProcessingJob(
   every("processing:complete", matrix.work.processingSweepTicks, (tick) => {
     let changed = false;
     for (const job of Object.values(state.jobs)) {
+      const wasComplete = job.complete;
       const output = completeProcessing(job, tick);
       if (output <= 0) continue;
-      const business = businesses.byId[`cpu_${job.trade}`];
+      const business = storefrontBusinessForTrade(businesses, job.trade);
       const content = processingDef(job.trade);
       if (!business || !content) continue;
       const cap = tradeDef(job.trade).storageCap;
       const stored = Math.min(output, Math.max(0, cap - business.storage));
+      job.outputShelvedTotal += stored;
       business.storage += stored;
       business.producedTotal += stored;
       adjustStock(prices, content.outputGood, stored);
@@ -244,6 +271,9 @@ export function startProcessingJob(
             "info"
           );
         }
+      }
+      if (!wasComplete && job.complete) {
+        announceQueueComplete(job.id, job.trade, job.outputShelvedTotal);
       }
       changed = true;
     }

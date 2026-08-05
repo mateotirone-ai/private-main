@@ -56,6 +56,7 @@ describe("CPU business output rates", () => {
     const results = runCpuProduction(
       byId,
       new Set<string>(),
+      () => 1,
       matrix.work.employment
     );
     expect(byId["cpu_bakery"]!.storage).toBe(
@@ -69,5 +70,8 @@ describe("CPU business output rates", () => {
     expect(ownerPresenceMultiplier("cpu", new Set(), cfg)).toBe(0.1);
     expect(ownerPresenceMultiplier("p:owner", new Set(), cfg)).toBe(0.5);
     expect(ownerPresenceMultiplier("p:owner", new Set(["p:owner"]), cfg)).toBe(1);
+    expect(ownerPresenceMultiplier("p:owner", new Set(), cfg, 99)).toBeLessThanOrEqual(
+      cfg.offlineEmployeeCap
+    );
   });
 });

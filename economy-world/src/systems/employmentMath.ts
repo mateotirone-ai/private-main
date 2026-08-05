@@ -19,14 +19,19 @@ export interface PresenceMultipliers {
   cpuMultiplier: number;
   offlineOwnerMultiplier: number;
   activeOwnerMultiplier: number;
+  offlineEmployeeStep: number;
+  offlineEmployeeCap: number;
 }
 
 /** Master design: CPU ~10%, offline/AFK owner ~50%, active owner 100%. */
 export function ownerPresenceMultiplier(
   owner: "cpu" | string,
   activeOwnerIds: ReadonlySet<string>,
-  cfg: PresenceMultipliers
+  cfg: PresenceMultipliers,
+  employeeSlots = 0
 ): number {
   if (owner === "cpu") return cfg.cpuMultiplier;
-  return activeOwnerIds.has(owner) ? cfg.activeOwnerMultiplier : cfg.offlineOwnerMultiplier;
+  if (activeOwnerIds.has(owner)) return cfg.activeOwnerMultiplier;
+  const employeeLift = Math.max(0, employeeSlots) * cfg.offlineEmployeeStep;
+  return Math.min(cfg.offlineEmployeeCap, cfg.offlineOwnerMultiplier + employeeLift);
 }

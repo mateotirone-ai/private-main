@@ -3,7 +3,7 @@
  * Every piece-rate payment is a Ledger transfer from the business account.
  */
 import type { Player } from "@minecraft/server";
-import { balance, transfer, type LedgerState } from "../core/ledger";
+import { balance, transfer, LedgerError, type LedgerState } from "../core/ledger";
 import { loadBlob, saveBlob } from "../core/state";
 import { currentTick } from "../core/scheduler";
 import { matrix } from "../content/matrix";
@@ -13,9 +13,8 @@ import { feedback } from "../ui/feedback";
 import { confirmTxn, menuHub } from "../ui/patterns";
 import { bareAmount, merids } from "../ui/theme";
 import {
-  bizAccount,
+  bizAccount, 
   ensureBizFloat,
-  listCpuBusinesses,
   type BusinessesState,
 } from "./businesses";
 import { playerAccount } from "./bank";
@@ -94,15 +93,20 @@ function payOutput(
   const payout = pieceRatePayout(session.ratePerUnit, session.output);
   if (payout <= 0) return 0;
   ensureBizFloat(ledger, session.businessId, payout);
-  transfer(
-    ledger,
-    bizAccount(session.businessId),
-    `p:${playerId}`,
-    payout,
-    nowTick,
-    "employment:wage"
-  );
-  return payout;
+  try {
+    transfer(
+      ledger,
+      bizAccount(session.businessId),
+      `p:${playerId}`,
+      payout,
+      nowTick,
+      "employment:wage"
+    );
+    return payout;
+  } catch (error) {
+    if (error instanceof LedgerError) return 0;
+    throw error;
+  }
 }
 
 export function clockOut(
@@ -167,9 +171,9 @@ export async function openJobBoard(
 
   await menuHub(player, {
     title: "Job board",
-    facts: [`Openings: ${listCpuBusinesses(businesses).length}`],
+    facts: [`Openings: ${Object.values(businesses.byId).length}`],
     narrator: "A steady piece rate is ownership's less dramatic cousin.",
-    buttons: listCpuBusinesses(businesses).map((business) => ({
+    buttons: Object.values(businesses.byId).map((business) => ({
       label: `${tradeDef(business.trade).name} — ${bareAmount(pieceRateFor(business.trade, business.tier))}/unit`,
       onSelect: async () => {
         const before = balance(ledger, playerAccount(player));

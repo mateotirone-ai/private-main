@@ -11,6 +11,7 @@ import {
 } from "../core/ledger";
 import { matrix } from "../content/matrix";
 import { allTradeIds, tradeDef } from "../content/trades";
+import { pickStorefrontFlavor } from "../content/flavorLines";
 import { currentTick } from "../core/scheduler";
 import { bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
@@ -22,12 +23,14 @@ import {
   type Business,
   bizAccount,
   ensureBizFloat,
+  effectiveBusinessUnitPrice,
   saveBusinesses,
 } from "./businesses";
 import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./pricing";
 import { freelancePayout } from "./pricingMath";
 import { playerAccount } from "./bank";
 import { paySaleCashFromAccount } from "./saleCash";
+import { noteBusinessRevenue } from "./ownership";
 
 function displayGood(good: string): string {
   if (good === "log") return "logs";
@@ -63,7 +66,7 @@ export async function openStorefront(
     return;
   }
   const def = tradeDef(biz.trade);
-  const unit = currentUnitPrice(prices, def.good);
+  const unit = effectiveBusinessUnitPrice(biz, currentUnitPrice(prices, def.good));
   await menuHub(player, {
     title: def.name,
     facts: [
@@ -97,7 +100,7 @@ async function buyFlow(
     feedback(player, Voice.shopEmpty, "caution");
     return;
   }
-  const unit = currentUnitPrice(prices, def.good);
+  const unit = effectiveBusinessUnitPrice(biz, currentUnitPrice(prices, def.good));
   const maxBuy = Math.min(biz.storage, 64);
   await catalog(player, {
     title: `Buy — ${def.name}`,
@@ -163,12 +166,15 @@ async function confirmBuy(
   if (!ok) return;
   try {
     transfer(ledger, acct, bizAccount(biz.id), total, currentTick(), "shop:buy");
+    noteBusinessRevenue(bizState, biz.id, total);
     live.storage -= qty;
     adjustStock(prices, def.good, -qty);
     giveItem(player, def.item, qty);
     saveBusinesses(bizState);
     savePrices(prices);
     feedback(player, Voice.shopBuyOk(`${qty} ${displayGood(def.good)}`, merids(total)), "gain");
+    const line = pickStorefrontFlavor(biz.trade, "buy");
+    if (line) feedback(player, line, "info");
   } catch (e) {
     if (e instanceof LedgerError) feedback(player, Voice.transferFailFunds, "error");
     else {
@@ -236,6 +242,8 @@ async function sellFlow(
     saveBusinesses(bizState);
     savePrices(prices);
     feedback(player, Voice.shopSellOk(`${taken} ${displayGood(def.good)}`, merids(payout)), "gain");
+    const line = pickStorefrontFlavor(biz.trade, "sell");
+    if (line) feedback(player, line, "info");
   } catch (e) {
     console.error(`[ew] shop sell failed: ${e}`);
     feedback(player, Voice.error, "error");

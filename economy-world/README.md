@@ -1,8 +1,8 @@
-# ECONOMY WORLD — Phase D
+# ECONOMY WORLD — Phase E
 
 The living-economy Bedrock add-on. Design authority in `docs/`.
 
-**Phase D:** stamped extraction nodes, queued processing, physical-cash sales, service customers, and piece-rate employment with loaner tools. See `NOTES.md`.
+**Phase E:** ownership/buyout auctions, CPU successors, owner management panels, upgrades, and presence-aware production on top of Phase D work engines. See `NOTES.md`.
 
 ## Setup
 1. Node 20+ · Minecraft Bedrock
@@ -16,10 +16,11 @@ The living-economy Bedrock add-on. Design authority in `docs/`.
 - `/scriptevent ew:dev publiczone stone_quarry` stamps a public test pit
 - `/scriptevent ew:dev station sawmill` · `/scriptevent ew:dev service general_store`
 - `/scriptevent ew:dev need bakery` forces a service need on a loaded bakery host
+- `/scriptevent ew:dev owner bakery` opens buyout/management for a trade (or pass a business id)
 - Tags: `ew:npc_jobs`, `ew:station_<trade>`, `ew:service_<trade>` plus Phase C tags
 
 ## Phase map
-A ✅ → B ✅ → C ✅ → D ✅ → E ownership → F death/NPCs/HUD → G ship
+A ✅ → B ✅ → C ✅ → D ✅ → E ✅ → F death/NPCs/HUD → G ship
 
 ## Rules
 - Money moves ONLY through `Ledger`

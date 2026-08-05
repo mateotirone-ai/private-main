@@ -2,7 +2,7 @@
  * Service engine: CPU customer needs, active fulfillment, margin bonus.
  * Customer hosts are tagged `ew:service_<trade>`.
  */
-import { world, type Player } from "@minecraft/server";
+import { world, type Player, type Vector3 } from "@minecraft/server";
 import { balance, mint, transfer, type LedgerState } from "../core/ledger";
 import { loadBlob, saveBlob } from "../core/state";
 import { currentTick, every } from "../core/scheduler";
@@ -15,19 +15,24 @@ import { merids } from "../ui/theme";
 import { playerAccount } from "./bank";
 import {
   bizAccount,
+  effectiveBusinessUnitPrice,
+  storefrontBusinessForTrade,
   saveBusinesses,
   type BusinessesState,
 } from "./businesses";
 import {
   employmentSession,
+  EmploymentSession,
   recordEmployeeOutput,
   saveEmployment,
   type EmploymentState,
 } from "./employment";
 import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./pricing";
+import { noteBusinessRevenue } from "./ownership";
 import {
   serviceOrderTotal,
   createCustomerRequest,
+  rollRequestQty,
   type CustomerRequest,
   type ServiceHost,
 } from "./serviceMath";
@@ -57,10 +62,25 @@ export function saveService(state: ServiceState): void {
 export function registerServiceHost(
   state: ServiceState,
   hostId: string,
-  trade: string
+  trade: string,
+  dimensionId: string,
+  location: Vector3,
+  speaker: string,
+  businessId?: string
 ): ServiceHost {
   tradeDef(trade);
-  const host = { id: hostId, trade };
+  const host = {
+    id: hostId,
+    trade,
+    businessId,
+    dimensionId,
+    location: {
+      x: Math.floor(location.x),
+      y: Math.floor(location.y),
+      z: Math.floor(location.z),
+    },
+    speaker,
+  };
   state.hosts[hostId] = host;
   saveService(state);
   return host;
@@ -78,7 +98,14 @@ function discoverLoadedServiceHosts(state: ServiceState): void {
       if (!serviceTag) continue;
       const trade = serviceTag.slice("ew:service_".length);
       try {
-        registerServiceHost(state, entity.id, trade);
+        registerServiceHost(
+          state,
+          entity.id,
+          trade,
+          dimension.id,
+          entity.location,
+          entity.nameTag || tradeDef(trade).name
+        );
       } catch {
         console.warn(`[ew] ignored unknown service host trade: ${trade}`);
       }
@@ -89,7 +116,8 @@ function discoverLoadedServiceHosts(state: ServiceState): void {
 export function forceSpawnCustomerNeed(
   state: ServiceState,
   trade: string,
-  tick: number
+  tick: number,
+  sourcePlayer?: Player
 ): CustomerRequest {
   discoverLoadedServiceHosts(state);
   const matchingHosts = Object.values(state.hosts).filter(
@@ -98,11 +126,24 @@ export function forceSpawnCustomerNeed(
   const host =
     matchingHosts.find((candidate) => !candidate.id.startsWith("dev:")) ??
     matchingHosts[0] ??
-    registerServiceHost(state, `dev:${trade}`, trade);
+    registerServiceHost(
+      state,
+      `dev:${trade}`,
+      trade,
+      sourcePlayer?.dimension.id ?? "minecraft:overworld",
+      sourcePlayer?.location ?? { x: 0, y: 64, z: 0 },
+      tradeDef(trade).name
+    );
   const request = createCustomerRequest(
     host,
     tradeDef(trade).good,
-    matrix.work.service.requestQty,
+    rollRequestQty({
+      minQty: matrix.work.service.requestQtyMin,
+      maxQty: matrix.work.service.requestQtyMax,
+      largeOrderChance: matrix.work.service.largeOrderChance,
+      largeMinQty: matrix.work.service.largeOrderQtyMin,
+      largeMaxQty: matrix.work.service.largeOrderQtyMax,
+    }),
     tick
   );
   state.requests[host.id] = request;
@@ -110,22 +151,80 @@ export function forceSpawnCustomerNeed(
   return request;
 }
 
-export function spawnServiceNeeds(state: ServiceState, tick: number): void {
+function serviceStaffPlayers(
+  businessId: string,
+  businesses: BusinessesState,
+  employment: EmploymentState
+): Player[] {
+  const owner = businesses.byId[businessId]?.owner;
+  const staff = new Map<string, Player>();
+  for (const player of world.getAllPlayers()) {
+    const ownerMatch =
+      owner && owner !== "cpu" && (owner === player.id || owner === `p:${player.id}`);
+    if (ownerMatch) {
+      staff.set(player.id, player);
+      continue;
+    }
+    const session: EmploymentSession | undefined = employment.sessions[player.id];
+    if (session?.businessId === businessId) staff.set(player.id, player);
+  }
+  return [...staff.values()];
+}
+
+function notifyNeed(
+  request: CustomerRequest,
+  host: ServiceHost,
+  businesses: BusinessesState,
+  employment: EmploymentState
+): void {
+  const staff = serviceStaffPlayers(request.businessId, businesses, employment);
+  if (!staff.length) return;
+  const noun = request.qty === 1 ? request.good : `${request.good}`;
+  const line = `Customer waiting — ${request.qty} ${noun}.`;
+  for (const player of staff) {
+    if (player.dimension.id !== host.dimensionId) continue;
+    player.playSound("block.bell.hit", { location: host.location });
+    actionbar(player, line, "caution");
+  }
+}
+
+export function spawnServiceNeeds(
+  state: ServiceState,
+  businesses: BusinessesState,
+  employment: EmploymentState,
+  tick: number
+): void {
+  for (const host of Object.values(state.hosts)) {
+    host.businessId =
+      storefrontBusinessForTrade(businesses, host.trade)?.id ?? `cpu_${host.trade}`;
+  }
   for (const host of Object.values(state.hosts)) {
     if (state.requests[host.id]) continue;
-    state.requests[host.id] = createCustomerRequest(
+    const request = createCustomerRequest(
       host,
       tradeDef(host.trade).good,
-      matrix.work.service.requestQty,
+      rollRequestQty({
+        minQty: matrix.work.service.requestQtyMin,
+        maxQty: matrix.work.service.requestQtyMax,
+        largeOrderChance: matrix.work.service.largeOrderChance,
+        largeMinQty: matrix.work.service.largeOrderQtyMin,
+        largeMaxQty: matrix.work.service.largeOrderQtyMax,
+      }),
       tick
     );
+    state.requests[host.id] = request;
+    notifyNeed(request, host, businesses, employment);
   }
   saveService(state);
 }
 
-export function startServiceJob(state: ServiceState): void {
+export function startServiceJob(
+  state: ServiceState,
+  businesses: BusinessesState,
+  employment: EmploymentState
+): void {
   discoverLoadedServiceHosts(state);
-  spawnServiceNeeds(state, currentTick());
+  spawnServiceNeeds(state, businesses, employment, currentTick());
   console.log(
     `[ew] service need spawner registered every ${matrix.work.service.spawnEveryTicks} ticks`
   );
@@ -134,7 +233,7 @@ export function startServiceJob(state: ServiceState): void {
     matrix.work.service.spawnEveryTicks,
     (tick) => {
       discoverLoadedServiceHosts(state);
-      spawnServiceNeeds(state, tick);
+      spawnServiceNeeds(state, businesses, employment, tick);
     }
   );
 }
@@ -149,10 +248,24 @@ export async function openServiceCustomer(
   trade: string,
   hostId = `dev:${trade}`
 ): Promise<void> {
-  registerServiceHost(service, hostId, trade);
+  const existingHost = service.hosts[hostId];
+  if (!existingHost) {
+    registerServiceHost(
+      service,
+      hostId,
+      trade,
+      player.dimension.id,
+      player.location,
+      tradeDef(trade).name,
+      storefrontBusinessForTrade(businesses, trade)?.id
+    );
+  }
   const businessId = `cpu_${trade}`;
   const request = service.requests[hostId];
-  const business = businesses.byId[businessId];
+  const requestBusinessId = request?.businessId ?? businessId;
+  const business =
+    businesses.byId[requestBusinessId] ??
+    storefrontBusinessForTrade(businesses, trade);
   if (!request || !business) {
     feedback(player, "No customer is waiting.", "info");
     return;
@@ -162,7 +275,10 @@ export async function openServiceCustomer(
     return;
   }
 
-  const unit = currentUnitPrice(prices, request.good);
+  const unit = effectiveBusinessUnitPrice(
+    business,
+    currentUnitPrice(prices, request.good)
+  );
   const total = serviceOrderTotal(
     unit,
     request.qty,
@@ -196,15 +312,16 @@ export async function openServiceCustomer(
   transfer(
     ledger,
     CUSTOMER_ACCOUNT,
-    bizAccount(businessId),
+    bizAccount(business.id),
     total,
     currentTick(),
     "service:customer"
   );
+  noteBusinessRevenue(businesses, business.id, total);
   business.storage -= request.qty;
   adjustStock(prices, request.good, -request.qty);
   const session = employmentSession(employment, player.id);
-  if (session?.businessId === businessId) {
+  if (session?.businessId === business.id) {
     const progress = recordEmployeeOutput(employment, player.id, request.qty);
     saveEmployment(employment);
     if (progress) {

@@ -10,11 +10,25 @@ import {
 export interface BizSnap {
   id: string;
   trade: string;
-  tier: 1;
+  tier: 1 | 2 | 3;
   owner: "cpu" | string;
   storage: number;
   producedTotal: number;
   productionRemainder?: number;
+  ownerAccount: string | null;
+  priceOverridePct: number | null;
+  revenueBalance: number;
+  revenueHistory: Array<{ tick: number; amount: number }>;
+  employeeSlots: string[];
+  successorOf: string | null;
+  construction:
+    | {
+        targetTier: 1 | 2 | 3;
+        startedTick: number;
+        completeTick: number;
+        cost: number;
+      }
+    | null;
 }
 
 export function seedCpuBusinesses(): Record<string, BizSnap> {
@@ -30,6 +44,13 @@ export function seedCpuBusinesses(): Record<string, BizSnap> {
       storage: Math.floor(def.storageCap / 2),
       producedTotal: 0,
       productionRemainder: 0,
+      ownerAccount: null,
+      priceOverridePct: null,
+      revenueBalance: 0,
+      revenueHistory: [],
+      employeeSlots: [],
+      successorOf: null,
+      construction: null,
     };
   }
   return byId;
@@ -61,16 +82,25 @@ export interface ProductionResult {
 export function runCpuProduction(
   byId: Record<string, BizSnap>,
   activeOwnerIds: ReadonlySet<string> = new Set(),
+  bizMultiplier: (biz: BizSnap) => number = () => 1,
   multipliers: PresenceMultipliers = {
     cpuMultiplier: 1,
     offlineOwnerMultiplier: 1,
     activeOwnerMultiplier: 1,
+    offlineEmployeeStep: 0,
+    offlineEmployeeCap: 1,
   }
 ): ProductionResult[] {
   const out: ProductionResult[] = [];
   for (const biz of Object.values(byId)) {
     const def = tradeDef(biz.trade);
-    const multiplier = ownerPresenceMultiplier(biz.owner, activeOwnerIds, multipliers);
+    const multiplier =
+      ownerPresenceMultiplier(
+        biz.owner,
+        activeOwnerIds,
+        multipliers,
+        Math.max(0, biz.employeeSlots.length)
+      ) * bizMultiplier(biz);
     const added = produceOnce(biz, def, multiplier);
     if (added > 0) out.push({ trade: biz.trade, good: def.good, added });
   }

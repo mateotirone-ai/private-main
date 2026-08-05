@@ -9,9 +9,9 @@
 5. **Player sales settle as physical cash.** Dealer, commons, and freelancer sales enter the ledger, immediately use `cashOut`, then pack into an existing wallet or spawn notes. Bank balances do not rise. Piece-rate wages are the sole current direct-to-bank exception.
 6. **NPC interactions speak.** Confirmations and denials inside an NPC-opened flow use a name-tagged chat line from that NPC. Toasts are reserved for item/system events. P2 receipts remain forms.
 
-## Phase D (current)
+## Phase E (current)
 
-Built against `docs/layer1-technical-spec.md` §4.7–4.8 and the master design. Stopped at Phase D (no Phase E).
+Built against `docs/layer1-technical-spec.md` §4.7–4.9 and the master design. Ownership is now live on top of the Phase D work rails.
 
 ### Phase C live-test fixes included
 - **Toasts:** subtitle-only rendering avoids Bedrock's intrinsically oversized title font. White copy plus a small status-color marker is capped at `42` characters with `2/100/10` tick timing. Overflow shortens only at word boundaries.
@@ -43,6 +43,15 @@ Built against `docs/layer1-technical-spec.md` §4.7–4.8 and the master design.
 - **NPC feedback:** `withNpcSpeaker` keeps nested forms in the initiating NPC's speech context; system/item flows continue using toasts.
 - **Service host discovery:** the need spawner is registered unconditionally during boot, scans loaded player dimensions every cadence for `ew:service_<trade>` tags, and persists exact host IDs. Dev/event service routes also register synthetic hosts.
 - **Service test hook:** `/scriptevent ew:dev need <trade>` discovers loaded tagged hosts and immediately attaches one need, allowing bakery/service testing without waiting.
+
+### Phase E ownership systems
+- **Business model migration:** business state now persists tier `1|2|3`, owner account, configurable price override, accrued revenue balance, revenue history cache, employee stubs, construction/upgrade state, and successor lineage.
+- **Appraisal + buyout:** owner panel computes valuation from tier base + inventory + recent revenue + upgrade spend and runs an immediate sealed-bid auction (player vs bank vs CPU). Losing bids do not charge; player wins settle via `sink(..., "sink:buyout")`.
+- **CPU successor:** when a player wins a buyout, a CPU successor business is seeded for the same trade while the purchased business becomes player-owned under a distinct business id.
+- **Owner management panel (P4 rails):** owner can collect earnings, set bounded market-price multiplier, add/remove employee stubs, and start tier upgrades funded by business account (`sink:construction`).
+- **Upgrade scheduler:** upgrades queue with tier-target durations, complete asynchronously, and apply new tier output multipliers once construction ends.
+- **Presence scaling:** offline owner output now rises with employee stub count up to a configured cap below active owner output; CPU remains fixed at 10%.
+- **Business-ID routing:** entity tags can now target explicit businesses with `ew:biz_<businessId>`, allowing successor/player storefront separation without hardcoding `cpu_<trade>` assumptions.
 
 ### Phase D entry points
 - `/scriptevent ew:dev jobs`
@@ -124,7 +133,7 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 
 ---
 
-## ⚑ Placeholders (Phase B–D)
+## ⚑ Placeholders (Phase B–E)
 
 | Key | Value | Why ⚑ |
 |---|---|---|
@@ -146,10 +155,23 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `work.processing.smeltery` | `2 iron ore → 1 iron`, `300` ticks | Ratios/timing not quantified |
 | `work.processing.bakery` | `3 wheat → 2 bread`, `160` ticks | Ratios/timing not quantified |
 | `work.service.spawnEveryTicks` | `600` | Customer cadence not specified |
-| `work.service.requestQty` | `2` | Order size not specified |
+| `work.service.requestQtyMin` / `requestQtyMax` | `1` / `4` | Service order-size range not specified |
+| `work.service.largeOrderChance` | `0.08` | Large-order incidence is unspecified |
+| `work.service.largeOrderQtyMin` / `largeOrderQtyMax` | `6` / `10` | Large-order size band is unspecified |
 | `work.service.activeMarginBonus` | `0.2` | Active margin must beat passive; exact bonus absent |
 | `work.employment.pieceRateByTradeTier` | quarry `2/3`; ore `4/6`; precious `25/35`; lumber `2/3`; crop `1/2`; sawmill `3/5`; smeltery `6/9`; bakery `3/4`; fishery `2/3`; store `2/3` | Per-trade tier piece rates are not quantified |
 | `work.employment.toolQualityByTier` | tier 1 → `1`; tier 2 → `2` | Company-tool quality/Unbreaking scale not quantified |
+| `work.employment.offlineEmployeeStep` / `offlineEmployeeCap` | `0.12` / `0.9` | Employee lift and offline cap are behavior-only in docs |
+| `ownership.revenueWindowTicks` / `revenueHistoryCap` | `24000` / `128` | Revenue cache window/cap not quantified |
+| `ownership.tierOutputMultiplierByTier` | t1 `1`, t2 `1.35`, t3 `1.7` | Phase E tier output bonuses not quantified |
+| `ownership.evaluation.*` | see `data/matrix.json` | Valuation component weights/factors are unspecified |
+| `ownership.auction.*` | see `data/matrix.json` | Bank/CPU bid spread and luck-boost envelope are unspecified |
+| `ownership.management.priceOverride*` | `0.8`–`1.25` | Owner price bounds are policy-level, not numeric |
+| `ownership.management.maxEmployeeSlots` | `4` | Employee stub cap not specified |
+| `ownership.management.employeeSlotHireCost` | `250` | Stub-slot hire fee not specified |
+| `ownership.management.upgradeCostByTradeTier` | see `data/matrix.json` | Phase E trade-tier upgrade costs not numerically specified |
+| `ownership.management.upgradeDurationTicksByTier` | t2 `2400`, t3 `3600` | Upgrade durations are behavior-only in docs |
+| `ownership.management.successorSpawnOffset` | `(6, 0, 0)` | Successor storefront placement offset is unspecified |
 
 ### Dealer soften formula (Phase B, unchanged)
 ```
