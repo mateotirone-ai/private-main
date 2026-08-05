@@ -39,6 +39,15 @@ function assert(condition, message) {
 
 const bpManifest = json(resolve(bp, "manifest.json"));
 const rpManifest = json(resolve(rp, "manifest.json"));
+const bpModuleTypes = new Set(bpManifest.modules.map((module) => module.type));
+assert(
+  bpModuleTypes.has("data"),
+  "BP manifest is missing a data module; custom items may be stripped on load"
+);
+assert(
+  bpModuleTypes.has("script"),
+  "BP manifest is missing a script module"
+);
 assert(
   bpManifest.header.description.includes(`Phase ${expectedPhase}`),
   `BP manifest is not Phase ${expectedPhase}`

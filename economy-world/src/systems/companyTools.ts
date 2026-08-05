@@ -6,16 +6,19 @@ import {
   type Player,
 } from "@minecraft/server";
 import { matrix } from "../content/matrix";
-import { jobToolItem } from "../content/work";
+import { jobToolItem, workConfig } from "../content/work";
 import { tradeDef } from "../content/trades";
 import {
   decodeCompanyToolMarker,
   encodeCompanyToolMarker,
-  shouldReclaimCompanyTool,
+  shouldReclaimCompanyToolItem,
   type CompanyToolMarker,
 } from "./companyToolPolicy";
 
 const COMPANY_TOOL_KEY = "ew:company_tool";
+const COMPANY_TOOL_TYPE_IDS = new Set(
+  Object.values(workConfig.jobTools).flatMap((tiers) => Object.values(tiers))
+);
 
 function inventory(player: Player): Container | undefined {
   return player.getComponent("inventory")?.container;
@@ -78,8 +81,19 @@ export function reclaimCompanyTools(
   let reclaimed = 0;
   for (let slot = 0; slot < inv.size; slot++) {
     const item = inv.getItem(slot);
+    if (!item) continue;
     const marker = companyToolMarker(item);
-    if (!shouldReclaimCompanyTool(marker, player.id, reason)) continue;
+    if (
+      !shouldReclaimCompanyToolItem(
+        marker,
+        item.typeId,
+        COMPANY_TOOL_TYPE_IDS,
+        player.id,
+        reason
+      )
+    ) {
+      continue;
+    }
     inv.setItem(slot, undefined);
     reclaimed += 1;
   }

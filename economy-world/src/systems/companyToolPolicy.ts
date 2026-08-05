@@ -53,3 +53,21 @@ export function shouldReclaimCompanyTool(
     marker && marker.ownerId === playerId && (reason === "clockOut" || reason === "death")
   );
 }
+
+/**
+ * Extra safety guard: only reclaim configured company-tool item types.
+ * This prevents accidental deletion if any unrelated item ever carries
+ * a stale or malformed company marker payload.
+ */
+export function shouldReclaimCompanyToolItem(
+  marker: CompanyToolMarker | undefined,
+  itemTypeId: string,
+  allowedItemTypeIds: ReadonlySet<string>,
+  playerId: string,
+  reason: "clockOut" | "death"
+): boolean {
+  return (
+    allowedItemTypeIds.has(itemTypeId) &&
+    shouldReclaimCompanyTool(marker, playerId, reason)
+  );
+}

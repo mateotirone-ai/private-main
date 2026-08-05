@@ -6,6 +6,7 @@ import {
   decodeCompanyToolMarker,
   encodeCompanyToolMarker,
   shouldReclaimCompanyTool,
+  shouldReclaimCompanyToolItem,
   type CompanyToolMarker,
 } from "../src/systems/companyToolPolicy";
 
@@ -53,5 +54,30 @@ describe("company tool lifecycle", () => {
     expect(shouldReclaimCompanyTool(marker, "player", "death")).toBe(true);
     expect(shouldReclaimCompanyTool(marker, "other", "death")).toBe(false);
     expect(shouldReclaimCompanyTool(undefined, "player", "death")).toBe(false);
+  });
+
+  it("never reclaims wallet or cash notes", () => {
+    const allowed = new Set<string>([
+      "minecraft:stone_pickaxe",
+      "minecraft:iron_pickaxe",
+    ]);
+    expect(
+      shouldReclaimCompanyToolItem(
+        marker,
+        "ew:wallet",
+        allowed,
+        "player",
+        "death"
+      )
+    ).toBe(false);
+    expect(
+      shouldReclaimCompanyToolItem(
+        marker,
+        "ew:cash_100",
+        allowed,
+        "player",
+        "death"
+      )
+    ).toBe(false);
   });
 });
