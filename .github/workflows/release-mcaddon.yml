@@ -1,0 +1,51 @@
+name: Publish compiled mcaddon
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: economy-world
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: economy-world/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build behavior pack
+        run: npm run build
+
+      - name: Package mcaddon
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          (cd packs/economy_bp && zip -qr "../../dist/Economy World BP.mcpack" . -x "*.DS_Store")
+          (cd packs/economy_rp && zip -qr "../../dist/Economy World RP.mcpack" . -x "*.DS_Store")
+          (cd dist && zip -q "Economy-World-${RELEASE_TAG}.mcaddon" "Economy World BP.mcpack" "Economy World RP.mcpack")
+
+      - name: Publish GitHub release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: economy-world/dist/Economy-World-${{ github.ref_name }}.mcaddon

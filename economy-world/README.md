@@ -9,6 +9,10 @@ The living-economy Bedrock add-on. Design authority in `docs/`.
 2. `npm install` · `npm test` · `npm run build` · `npm run deploy`
 3. Flat world → Beta APIs → add Economy World BP
 
+## Releases
+- Installable builds are the `.mcaddon` assets on GitHub Releases; repository source ZIPs are not game-ready.
+- Every phase tag (`v*`) runs tests, compiles `scripts/main.js`, packages both packs, and publishes a `.mcaddon`.
+
 ## Dev hooks
 - `/scriptevent ew:dev bank|dealer|commons|wallet|jobs|givewallet|stipend|grant|audit|shops|produce`
 - `/scriptevent ew:dev shop stone_quarry` (any trade id)
