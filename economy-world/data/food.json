@@ -1,0 +1,23 @@
+{
+  "_comment": "Phase F launch foods use vanilla hunger components. Blocked loot tables close unearned food faucets; authorized supply comes from Economy World work/businesses.",
+  "edibleGoods": {
+    "minecraft:bread": { "good": "bread", "trade": "bakery" },
+    "minecraft:cod": { "good": "fish", "trade": "fishery" }
+  },
+  "blockedLootTables": [
+    "loot_tables/entities/cow.json",
+    "loot_tables/entities/pig.json",
+    "loot_tables/entities/chicken.json",
+    "loot_tables/entities/sheep.json",
+    "loot_tables/entities/rabbit.json",
+    "loot_tables/entities/cod.json",
+    "loot_tables/entities/salmon.json",
+    "loot_tables/chests/village/village_butcher.json",
+    "loot_tables/chests/village/village_desert_house.json",
+    "loot_tables/chests/village/village_fisher.json",
+    "loot_tables/chests/village/village_plains_house.json",
+    "loot_tables/chests/village/village_savanna_house.json",
+    "loot_tables/chests/village/village_snowy_house.json",
+    "loot_tables/chests/village/village_taiga_house.json"
+  ]
+}

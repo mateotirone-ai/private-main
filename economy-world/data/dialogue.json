@@ -1,0 +1,58 @@
+{
+  "_comment": "Phase F dialogue v1. Personality and template breadth are content, not numeric tuning.",
+  "fallbackPersonality": "practical",
+  "rolePools": {
+    "bank": "civic",
+    "dealer": "market",
+    "commons": "civic",
+    "jobs": "civic",
+    "station": "market",
+    "service": "service",
+    "shop": "market",
+    "owner": "market"
+  },
+  "personalities": {
+    "practical": {
+      "market": [
+        "{good} is {price} merids today. Stock: {stock}.",
+        "{ownerName} runs this counter. {good} moves at {price}."
+      ],
+      "service": [
+        "Customers want {good}. Stock says {stock}.",
+        "Service follows supply. Today that means {good}."
+      ],
+      "civic": [
+        "Welcome, {playerName}. The ledger is current.",
+        "Town note: {recentEvent}."
+      ]
+    },
+    "wry": {
+      "market": [
+        "{good} costs {price}. The shelf has opinions: {stock}.",
+        "{ownerName} owns it. The market merely judges it."
+      ],
+      "service": [
+        "Someone wants {good}. Someone always does.",
+        "Stock: {stock}. Optimism sold separately."
+      ],
+      "civic": [
+        "Hello, {playerName}. Paperwork survived.",
+        "The town remembers: {recentEvent}."
+      ]
+    },
+    "neighborly": {
+      "market": [
+        "{good} is {price} today, {playerName}. We have {stock}.",
+        "{ownerName} keeps this place moving."
+      ],
+      "service": [
+        "A customer could use {good}.",
+        "We have {stock} ready for the neighborhood."
+      ],
+      "civic": [
+        "Good to see you, {playerName}.",
+        "Around town: {recentEvent}."
+      ]
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { goodConfig } from "../content/prices";
 import { confirmTxn, managePanel, menuHub } from "../ui/patterns";
 import { bareAmount, merids } from "../ui/theme";
 import { feedback } from "../ui/feedback";
+import { setActionbarContext } from "../ui/toast";
 import { playerAccount } from "./bank";
 import {
   bizAccount,
@@ -23,6 +24,7 @@ import {
   type AuctionResolution,
 } from "./ownershipMath";
 import { loadBlob, saveBlob } from "../core/state";
+import { noteDialogueEvent } from "./dialogue";
 
 interface OwnershipState {
   schema: 1;
@@ -52,7 +54,10 @@ function saveOwnershipState(state: OwnershipState): void {
   saveBlob(KEY, state);
 }
 
-function evaluationForBusiness(businesses: BusinessesState, business: Business): number {
+export function businessEvaluation(
+  businesses: BusinessesState,
+  business: Business
+): number {
   const unit = goodConfig(tradeDef(business.trade).good).base;
   const revenue = recentRevenueTotal(businesses, business.id, currentTick());
   const upgradeSpend = business.construction?.cost ?? 0;
@@ -134,7 +139,7 @@ async function runBuyoutFlow(
   businesses: BusinessesState,
   business: Business
 ): Promise<void> {
-  const evalValue = evaluationForBusiness(businesses, business);
+  const evalValue = businessEvaluation(businesses, business);
   const before = balance(ledger, playerAccount(player));
   const panel = await managePanel(player, {
     title: `Buyout auction — ${tradeDef(business.trade).name}`,
@@ -192,6 +197,12 @@ async function runBuyoutFlow(
     throw error;
   }
   completeBuyout(player, businesses, business);
+  noteDialogueEvent({
+    kind: "ownership",
+    summary: `${player.nameTag} bought ${tradeDef(business.trade).name}`,
+    tick: currentTick(),
+    trade: business.trade,
+  });
   const ownership = loadOwnershipState();
   if (!ownership.firstOwnershipClaimed) {
     ownership.firstOwnershipClaimed = true;
@@ -212,7 +223,7 @@ async function openOwnerManagement(
   businesses: BusinessesState,
   business: Business
 ): Promise<void> {
-  const evalValue = evaluationForBusiness(businesses, business);
+  const evalValue = businessEvaluation(businesses, business);
   const bizBal = balance(ledger, bizAccount(business.id));
   const construction = business.construction
     ? `T${business.construction.targetTier} finishes in ${Math.max(
@@ -343,6 +354,19 @@ async function openOwnerManagement(
             cost,
           };
           saveBusinesses(businesses);
+          noteDialogueEvent({
+            kind: "construction",
+            summary: `${tradeDef(business.trade).name} started a T${targetTier} upgrade`,
+            tick: currentTick(),
+            trade: business.trade,
+          });
+          setActionbarContext(
+            player,
+            "construction",
+            `${tradeDef(business.trade).name} · T${targetTier} construction`,
+            "caution",
+            business.construction.completeTick
+          );
           feedback(player, `Upgrade started: T${targetTier}.`, "gain");
         },
       },
@@ -381,8 +405,15 @@ export function startOwnershipJobs(businesses: BusinessesState): void {
     for (const business of Object.values(businesses.byId)) {
       if (!business.construction) continue;
       if (currentTick() < business.construction.completeTick) continue;
+      const completedTier = business.construction.targetTier;
       business.tier = business.construction.targetTier;
       business.construction = null;
+      noteDialogueEvent({
+        kind: "construction",
+        summary: `${tradeDef(business.trade).name} completed its T${completedTier} upgrade`,
+        tick: currentTick(),
+        trade: business.trade,
+      });
       changed = true;
     }
     if (changed) saveBusinesses(businesses);

@@ -9,7 +9,7 @@ import { currentTick, every } from "../core/scheduler";
 import { matrix } from "../content/matrix";
 import { tradeDef } from "../content/trades";
 import { confirmTxn } from "../ui/patterns";
-import { actionbar } from "../ui/toast";
+import { setActionbarContext } from "../ui/toast";
 import { feedback } from "../ui/feedback";
 import { merids } from "../ui/theme";
 import { playerAccount } from "./bank";
@@ -184,7 +184,13 @@ function notifyNeed(
   for (const player of staff) {
     if (player.dimension.id !== host.dimensionId) continue;
     player.playSound("block.bell.hit", { location: host.location });
-    actionbar(player, line, "caution");
+    setActionbarContext(
+      player,
+      "service",
+      line,
+      "caution",
+      currentTick() + matrix.ui.hud.serviceAlertTicks
+    );
   }
 }
 
@@ -325,8 +331,9 @@ export async function openServiceCustomer(
     const progress = recordEmployeeOutput(employment, player.id, request.qty);
     saveEmployment(employment);
     if (progress) {
-      actionbar(
+      setActionbarContext(
         player,
+        "employment",
         `${tradeDef(trade).name} · +${progress.increment} · total ${progress.total}`,
         "info"
       );

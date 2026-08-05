@@ -9,9 +9,9 @@
 5. **Player sales settle as physical cash.** Dealer, commons, and freelancer sales enter the ledger, immediately use `cashOut`, then pack into an existing wallet or spawn notes. Bank balances do not rise. Piece-rate wages are the sole current direct-to-bank exception.
 6. **NPC interactions speak.** Confirmations and denials inside an NPC-opened flow use a name-tagged chat line from that NPC. Toasts are reserved for item/system events. P2 receipts remain forms.
 
-## Phase E (current)
+## Phase F (current)
 
-Built against `docs/layer1-technical-spec.md` §4.7–4.9 and the master design. Ownership is now live on top of the Phase D work rails.
+Built against `docs/layer1-technical-spec.md` §4.7–4.12 and the master design. Survival, food demand, dialogue, and HUD rails are now live on top of Phase E ownership.
 
 ### Phase C live-test fixes included
 - **Toasts:** subtitle-only rendering avoids Bedrock's intrinsically oversized title font. White copy plus a small status-color marker is capped at `42` characters with `2/100/10` tick timing. Overflow shortens only at word boundaries.
@@ -53,14 +53,53 @@ Built against `docs/layer1-technical-spec.md` §4.7–4.9 and the master design.
 - **Presence scaling:** offline owner output now rises with employee stub count up to a configured cap below active owner output; CPU remains fixed at 10%.
 - **Business-ID routing:** entity tags can now target explicit businesses with `ew:biz_<businessId>`, allowing successor/player storefront separation without hardcoding `cpu_<trade>` assumptions.
 
-### Phase D entry points
+### Phase F systems
+- **Death + medical:** every player death computes `round(flat + pct × (bank + carried cash))` once, sinks up to the available bank balance with `sink:medical`, leaves vanilla inventory/cash drops intact, and shows the itemized receipt after respawn. No Phase-F debt is created.
+- **Respawn:** native personal bed/house spawn remains authoritative, with Minecraft world spawn as the built-in fallback. Company tools are reclaimed and employment is settled as before.
+- **Food economy:** bakery bread and fishery cod are real vanilla edible items, so hunger creates purchases and stock pressure. Completed consumption is recorded for demand/dialogue. Farmable animal/fish drops and village food chests are replaced by configured empty loot tables; Economy World work nodes/businesses are the authorized supply.
+- **Dialogue v1:** `data/dialogue.json` supplies personality-filtered market/service/civic templates. NPC tags `ew:personality_practical`, `ew:personality_wry`, and `ew:personality_neighborly` render live `{good}`, `{price}`, `{playerName}`, `{ownerName}`, `{stock}`, and `{recentEvent}` slots.
+- **Recent events:** storefront sales/supply, buyouts, construction, food consumption, and medical bills feed a bounded persisted event ring used by NPC gossip.
+- **HUD:** `ew_cash` mirrors wallet + loose physical cash only; bank balance never appears. One priority manager owns the actionbar (`service > employment > construction > default`) and always retains the cash chip. `ew_skill` maps the Layer-1 skill-license score to the XP level. The danger hook is present but always off until PvP zones exist.
+- **Storefront buyout:** CPU storefronts show `This business is for sale`, display live evaluation, and start the sealed-bid auction from the shopkeeper. Owners see management at their storefront. The `owner` dev command remains a shortcut only.
+- **Pack cleanup:** deploy now deletes destination development-pack folders before copying, preventing removed Phase D custom node JSON from surviving. Existing development packs must be replaced once; old world blocks from obsolete `ew:node_*` pits require a fresh world or manual cleanup.
+- **Release verification:** release CI inspects source packs, nested `.mcpack` files, and the re-downloaded GitHub asset for Phase/version markers, compiled `main.js`, wallet resolution, and banned node references.
+
+## Dev commands
+
+Run `/scriptevent ew:dev help` in-game for this same grouped list.
+
+### Core
+- `/scriptevent ew:dev help` — list all commands
+
+### Phase A
+- `/scriptevent ew:dev grant` — mint test merids
+- `/scriptevent ew:dev audit` — run the ledger conservation audit
+- `/scriptevent ew:dev stipend` — claim the test stipend
+
+### Phase B
+- `/scriptevent ew:dev bank`
+- `/scriptevent ew:dev dealer`
+- `/scriptevent ew:dev wallet`
+- `/scriptevent ew:dev givewallet`
+
+### Phase C
+- `/scriptevent ew:dev commons`
+- `/scriptevent ew:dev shop <trade>`
+- `/scriptevent ew:dev shops`
+- `/scriptevent ew:dev produce`
+
+### Phase D
 - `/scriptevent ew:dev jobs`
-- `/scriptevent ew:dev zone <extraction_trade>` at the zone center
-- `/scriptevent ew:dev publiczone <extraction_trade>` for a commons node zone
+- `/scriptevent ew:dev zone <extraction_trade>`
+- `/scriptevent ew:dev publiczone <extraction_trade>`
 - `/scriptevent ew:dev station <processing_trade>`
 - `/scriptevent ew:dev service <service_trade>`
-- `/scriptevent ew:dev need <service_trade>` to force one need
-- Tags: `ew:npc_jobs`, `ew:station_<trade>`, `ew:service_<trade>`
+- `/scriptevent ew:dev need <service_trade>`
+
+### Phase E
+- `/scriptevent ew:dev owner <trade|businessId>`
+
+NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`, `ew:shop_<trade>`, `ew:biz_<businessId>`, `ew:owner_<trade>`, `ew:station_<trade>`, `ew:service_<trade>`, `ew:personality_<personality>`.
 
 ### Readability / computed-value conformance sweep
 | Screen / surface | Current ruling |
@@ -88,6 +127,15 @@ Built against `docs/layer1-technical-spec.md` §4.7–4.9 and the master design.
 - `test/salesCash.test.ts` — freelancer/dealer cashOut conservation and journal path
 - `test/companyTools.test.ts` — marker, tier configuration, node restriction, clock-out/death reclaim policy
 - `test/service.test.ts` — exact host attachment and whole-order rounding
+
+### Phase F tests
+- `test/devCommands.test.ts` — every registered dev command parses and appears in grouped help
+- `test/flavorAssets.test.ts` — item/terrain atlas resolution, 16×16 wallet PNG, language declaration, and full pack/data/source node-ID ban
+- `test/storefrontPolicy.test.ts` — CPU buyout vs owner-management routing
+- `test/death.test.ts` — medical total rounding, underfunded cap, ledger conservation, and one-shot receipt lifecycle
+- `test/food.test.ts` — edible goods, consumption history, and complete loot-override coverage
+- `test/dialogue.test.ts` — slot rendering, personality filters, role pools, and recent-state substitution
+- `test/hud.test.ts` — cash-only chip, one-context priority, expiry, and Layer-1 danger-off policy
 
 ## Phase C archive
 
@@ -127,13 +175,12 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 
 ### Wallet — open questions (not invented)
 - Max wallet capacity?
-- Does wallet drop on death with its balance (vs bank-safe)?
 - Auto-grant wallet at stipend/tutorial exit, or craft/buy only?
 - Multi-wallet: merge rules if two wallets exist?
 
 ---
 
-## ⚑ Placeholders (Phase B–E)
+## ⚑ Placeholders (Phase B–F)
 
 | Key | Value | Why ⚑ |
 |---|---|---|
@@ -142,11 +189,17 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `dealer.dailyCapacity.diamond` | `16` | Same |
 | `dealer.softFloor` | `0.5` | Soften floor not specified |
 | `cash.walletDefaultExtract` | `100` | Partial-extraction slider default not specified |
+| `medical.flat` / `medical.pctOfWealth` | `100` / `0.02` | Master locks flat + small wealth percentage, not the exact values |
+| `food.recentConsumptionCap` | `32` | Consumption history storage cap is not specified |
+| `dialogue.recentEventCap` | `32` | Dialogue v1 event-memory storage cap is not specified |
 | `trades.*.producePerTick` / `storageCap` | see `data/trades.json` | Master §13 “CPU restock rates” |
 | `cpuProduceEveryMinutes` | `10` | Aligned to price tick; not locked |
 | `fishery` trade + buyout `2200` / t2 | matrix + trades.json | Layer1 says 10 trades; Phase A matrix had 9 |
 | `prices.goods.fish` | base `4`, etc. | Needed for fishery |
 | `ui.toast.*` | subtitle `42` chars, timing `2/100/10` ticks | Third live-test pass: title font overflowed; docs give no numeric limits |
+| `ui.hud.refreshTicks` / `serviceAlertTicks` | `10` / `100` | HUD refresh and temporary customer-alert duration are not quantified |
+| `ui.hud.walletChip` | offset `(-8, 8)`, size `210×18` | JSON-UI couch layout geometry is not quantified |
+| `ui.hud.priorities` | default `10`, construction `40`, employment `60`, service `80` | One-context ordering is locked; numeric weights are implementation detail |
 | `work.nodeStampOffsets` | 3×3 pit, spacing `2`, depth `-1` (`9` nodes) | Authored test-pit count/layout not specified |
 | `work.nodeStages` | depleted `100`, ready `300` ticks | Visible staging is locked; timing is not |
 | `work.processingSweepTicks` | `20` | Processing job polling cadence not specified |

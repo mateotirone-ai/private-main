@@ -14,7 +14,7 @@ import {
   menuHub,
   progressPanel,
 } from "../ui/patterns";
-import { actionbar } from "../ui/toast";
+import { setActionbarContext } from "../ui/toast";
 import { feedback } from "../ui/feedback";
 import { balance } from "../core/ledger";
 import type { LedgerState } from "../core/ledger";
@@ -265,8 +265,9 @@ export function startProcessingJob(
           .getAllPlayers()
           .find((candidate) => candidate.id === job.employeeId);
         if (player && progress) {
-          actionbar(
+          setActionbarContext(
             player,
+            "employment",
             `${tradeDef(job.trade).name} · +${progress.increment} · total ${progress.total}`,
             "info"
           );

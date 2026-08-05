@@ -16,7 +16,7 @@ import { every, currentTick } from "../core/scheduler";
 import { matrix } from "../content/matrix";
 import { extractionDef } from "../content/work";
 import { tradeDef } from "../content/trades";
-import { actionbar } from "../ui/toast";
+import { setActionbarContext } from "../ui/toast";
 import { speakAs } from "../ui/feedback";
 import { saveBusinesses, type BusinessesState } from "./businesses";
 import {
@@ -244,8 +244,9 @@ export function startExtractionSystem(
       saveEmployment(employment);
       savePrices(prices);
       if (employed && session && progress) {
-        actionbar(
+        setActionbarContext(
           player,
+          "employment",
           `${def.name} · +${progress.increment} · total ${progress.total}`,
           "info"
         );

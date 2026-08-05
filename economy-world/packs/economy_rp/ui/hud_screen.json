@@ -1,0 +1,49 @@
+{
+  "namespace": "hud",
+  "root_panel": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "ew_wallet_chip@hud.ew_wallet_chip": {}
+          }
+        ]
+      }
+    ]
+  },
+  "ew_wallet_chip": {
+    "type": "panel",
+    "anchor_from": "top_right",
+    "anchor_to": "top_right",
+    "offset": [
+      -8,
+      8
+    ],
+    "size": [
+      210,
+      18
+    ],
+    "controls": [
+      {
+        "cash_text": {
+          "type": "label",
+          "anchor_from": "top_right",
+          "anchor_to": "top_right",
+          "color": [
+            0.91,
+            0.66,
+            0.11
+          ],
+          "text": "#hud_actionbar_text_string",
+          "bindings": [
+            {
+              "binding_name": "#hud_actionbar_text_string"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

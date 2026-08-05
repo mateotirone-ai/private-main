@@ -2,6 +2,14 @@
   "_comment": "TIER & COST MATRIX - every number here is a PLACEHOLDER flagged for playtest tuning.",
   "stipend": 250,
   "medical": { "flat": 100, "pctOfWealth": 0.02 },
+  "food": {
+    "_comment": "⚑ Recent consumption history cap is implementation storage tuning, not specified by design.",
+    "recentConsumptionCap": 32
+  },
+  "dialogue": {
+    "_comment": "⚑ Recent world-event memory cap is Phase F storage tuning; deeper NPC memory is deferred.",
+    "recentEventCap": 32
+  },
   "freelanceRate": 0.45,
   "bank": {
     "_comment": "⚑ transferFee — master doc §13 lists transfer fee as playtest tuning; 'tiny flat fee'.",
@@ -13,8 +21,24 @@
     "walletDefaultExtract": 100
   },
   "ui": {
-    "_comment": "⚑ Toast timing/line limits tuned for couch legibility; not numerically specified in the UI docs.",
-    "toast": { "maxChars": 42, "fadeInTicks": 2, "stayTicks": 100, "fadeOutTicks": 10 }
+    "_comment": "⚑ Toast/HUD cadence, context priorities, and alert duration are implementation tuning; HUD content rules are design-locked.",
+    "toast": { "maxChars": 42, "fadeInTicks": 2, "stayTicks": 100, "fadeOutTicks": 10 },
+    "hud": {
+      "refreshTicks": 10,
+      "serviceAlertTicks": 100,
+      "walletChip": {
+        "offsetX": -8,
+        "offsetY": 8,
+        "width": 210,
+        "height": 18
+      },
+      "priorities": {
+        "default": 10,
+        "construction": 40,
+        "employment": 60,
+        "service": 80
+      }
+    }
   },
   "work": {
     "_comment": "⚑ Phase D timing/capacity numbers are implementation placeholders where docs define behavior but not values.",

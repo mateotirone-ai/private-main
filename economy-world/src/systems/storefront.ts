@@ -30,7 +30,13 @@ import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./p
 import { freelancePayout } from "./pricingMath";
 import { playerAccount } from "./bank";
 import { paySaleCashFromAccount } from "./saleCash";
-import { noteBusinessRevenue } from "./ownership";
+import {
+  businessEvaluation,
+  noteBusinessRevenue,
+  openOwnershipPanel,
+} from "./ownership";
+import { storefrontOwnershipAction } from "./storefrontPolicy";
+import { noteDialogueEvent } from "./dialogue";
 
 function displayGood(good: string): string {
   if (good === "log") return "logs";
@@ -67,12 +73,18 @@ export async function openStorefront(
   }
   const def = tradeDef(biz.trade);
   const unit = effectiveBusinessUnitPrice(biz, currentUnitPrice(prices, def.good));
+  const ownershipAction = storefrontOwnershipAction(biz.owner, player.id);
+  const evaluation =
+    ownershipAction === "buyout" ? businessEvaluation(bizState, biz) : undefined;
   await menuHub(player, {
     title: def.name,
     facts: [
       `Stock: ${biz.storage}`,
       `Price: ${bareAmount(unit)} each`,
       `Sell payout: ${merids(freelancePayout(unit, 1, matrix.freelanceRate))} each — cash`,
+      ...(evaluation === undefined
+        ? []
+        : [`This business is for sale`, `Evaluation: ${merids(evaluation)}`]),
     ],
     narrator: Voice.shopWelcome,
     buttons: [
@@ -84,6 +96,24 @@ export async function openStorefront(
         label: "Sell (freelancer)",
         onSelect: () => sellFlow(player, ledger, bizState, prices, biz),
       },
+      ...(ownershipAction
+        ? [
+            {
+              label:
+                ownershipAction === "buyout"
+                  ? "This business is for sale"
+                  : "Manage this business",
+              onSelect: () =>
+                openOwnershipPanel(
+                  player,
+                  ledger,
+                  bizState,
+                  biz.trade,
+                  biz.id
+                ),
+            },
+          ]
+        : []),
     ],
   });
 }
@@ -172,6 +202,12 @@ async function confirmBuy(
     giveItem(player, def.item, qty);
     saveBusinesses(bizState);
     savePrices(prices);
+    noteDialogueEvent({
+      kind: "sale",
+      summary: `${qty} ${displayGood(def.good)} sold at ${def.name}`,
+      tick: currentTick(),
+      trade: biz.trade,
+    });
     feedback(player, Voice.shopBuyOk(`${qty} ${displayGood(def.good)}`, merids(total)), "gain");
     const line = pickStorefrontFlavor(biz.trade, "buy");
     if (line) feedback(player, line, "info");
@@ -241,6 +277,12 @@ async function sellFlow(
     adjustStock(prices, def.good, stored);
     saveBusinesses(bizState);
     savePrices(prices);
+    noteDialogueEvent({
+      kind: "supply",
+      summary: `${taken} ${displayGood(def.good)} arrived at ${def.name}`,
+      tick: currentTick(),
+      trade: biz.trade,
+    });
     feedback(player, Voice.shopSellOk(`${taken} ${displayGood(def.good)}`, merids(payout)), "gain");
     const line = pickStorefrontFlavor(biz.trade, "sell");
     if (line) feedback(player, line, "info");

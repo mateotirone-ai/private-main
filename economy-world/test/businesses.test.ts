@@ -21,10 +21,7 @@ describe("CPU business output rates", () => {
   it("produceOnce adds producePerTick until cap", () => {
     const def = tradeDef("stone_quarry");
     const biz = {
-      id: "cpu_stone_quarry",
-      trade: "stone_quarry",
-      tier: 1 as const,
-      owner: "cpu" as const,
+      ...seedCpuBusinesses()["cpu_stone_quarry"]!,
       storage: 0,
       producedTotal: 0,
     };
@@ -37,10 +34,7 @@ describe("CPU business output rates", () => {
   it("produceOnce respects storageCap", () => {
     const def = tradeDef("bakery");
     const biz = {
-      id: "cpu_bakery",
-      trade: "bakery",
-      tier: 1 as const,
-      owner: "cpu" as const,
+      ...seedCpuBusinesses()["cpu_bakery"]!,
       storage: def.storageCap - 1,
       producedTotal: 0,
     };

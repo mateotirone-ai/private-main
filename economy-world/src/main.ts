@@ -1,6 +1,6 @@
 /**
- * ECONOMY WORLD — Phase E boot.
- * A: ledger · B: bank/dealer · C: prices/trades · D: work/employment · E: ownership
+ * ECONOMY WORLD — Phase F boot.
+ * A: ledger · B: bank/dealer · C: prices/trades · D: work/employment · E: ownership · F: survival/dialogue/HUD
  *
  * Early-execution rule (Bedrock 1.26+): no world touches at module top-level.
  * All boot + world event subscriptions run inside system.run(...).
@@ -18,6 +18,7 @@ import {
   loadPrices,
   savePrices,
   startPricingJob,
+  currentUnitPrice,
   type PricesState,
 } from "./systems/pricing";
 import {
@@ -34,7 +35,7 @@ import { openCommons } from "./systems/commons";
 import { openWallet } from "./systems/wallet";
 import { ensureWallet } from "./systems/cash";
 import { tradeDef } from "./content/trades";
-import { withNpcSpeaker } from "./ui/feedback";
+import { speakAs, withNpcSpeaker } from "./ui/feedback";
 import {
   clockOut,
   loadEmployment,
@@ -68,6 +69,28 @@ import {
   setSuccessorSpawnHook,
   startOwnershipJobs,
 } from "./systems/ownership";
+import { devHelpLines, parseDevCommand } from "./dev/commands";
+import {
+  loadDeath,
+  settlePlayerDeath,
+  showPendingMedicalReceipt,
+  type DeathState,
+} from "./systems/death";
+import {
+  loadFood,
+  noteCompletedFoodUse,
+  setFoodConsumptionHook,
+  type FoodState,
+} from "./systems/food";
+import {
+  bindDialogueState,
+  loadDialogue,
+  noteDialogueEvent,
+  npcDialogueLine,
+  type DialogueState,
+} from "./systems/dialogue";
+import { formatAmount } from "./ui/theme";
+import { startHudJob } from "./systems/hud";
 
 const LEDGER_KEY = "ew:ledger";
 let ledger: LedgerState;
@@ -77,10 +100,51 @@ let employmentState: EmploymentState;
 let extractionState: ExtractionState;
 let processingState: ProcessingState;
 let serviceState: ServiceState;
+let deathState: DeathState;
+let foodState: FoodState;
+let dialogueState: DialogueState;
 
 function asPlayer(e: { typeId: string } | undefined): Player | undefined {
   if (!e || e.typeId !== "minecraft:player") return undefined;
   return e as Player;
+}
+
+function speakNpcPrelude(
+  player: Player,
+  speaker: string,
+  tags: readonly string[],
+  role: string,
+  trade?: string
+): void {
+  const business = trade
+    ? storefrontBusinessForTrade(bizState, trade)
+    : undefined;
+  const definition = trade ? tradeDef(trade) : undefined;
+  const ownerPlayer =
+    business?.owner && business.owner !== "cpu"
+      ? world
+          .getAllPlayers()
+          .find((candidate) => candidate.id === business.owner)
+      : undefined;
+  const line = npcDialogueLine(
+    dialogueState,
+    role,
+    tags,
+    {
+      good: definition?.good.replaceAll("_", " ") ?? "merids",
+      price: definition
+        ? formatAmount(currentUnitPrice(pricesState, definition.good))
+        : "posted",
+      playerName: player.nameTag,
+      ownerName:
+        business?.owner === "cpu"
+          ? "Meridian"
+          : ownerPlayer?.nameTag ?? "the owner",
+      stock: business ? formatAmount(business.storage) : "available",
+    },
+    trade
+  );
+  speakAs(player, speaker, line);
 }
 
 function boot(): void {
@@ -91,6 +155,18 @@ function boot(): void {
   extractionState = loadExtraction();
   processingState = loadProcessing();
   serviceState = loadService();
+  deathState = loadDeath();
+  foodState = loadFood();
+  dialogueState = loadDialogue();
+  bindDialogueState(dialogueState);
+  setFoodConsumptionHook((event) => {
+    noteDialogueEvent({
+      kind: "food",
+      summary: `${event.good.replaceAll("_", " ")} was eaten`,
+      tick: event.tick,
+      trade: event.trade,
+    });
+  });
   savePrices(pricesState);
   saveBusinesses(bizState);
 
@@ -153,6 +229,7 @@ function boot(): void {
     employmentState
   );
   startServiceJob(serviceState, bizState, employmentState);
+  startHudJob();
   setSuccessorSpawnHook((payload) => {
     console.log(
       `[ew] successor ready ${payload.successorId} from ${payload.predecessorId} (${payload.trade}) offset ${payload.offset.x},${payload.offset.y},${payload.offset.z}`
@@ -163,116 +240,158 @@ function boot(): void {
   system.afterEvents.scriptEventReceive.subscribe((ev) => {
     if (ev.id === "ew:dev") {
       const player = asPlayer(ev.sourceEntity);
-      if (ev.message === "grant" && player) {
-        mint(ledger, `p:${player.id}`, 100, currentTick(), "mint:system");
-        world.sendMessage(`§a[dev] granted 100 merids to ${player.nameTag}`);
+      const command = parseDevCommand(ev.message);
+      if (!command) {
+        const line = `§c[dev] unknown command: ${ev.message}. Use /scriptevent ew:dev help`;
+        if (player) player.sendMessage(line);
+        else world.sendMessage(line);
+        return;
       }
-      if (ev.message === "audit") {
-        const r = audit(ledger);
-        world.sendMessage(`§e[dev] audit ok=${r.ok} supply=${r.expected} drift=${r.drift}`);
-      }
-      if (ev.message === "stipend" && player) claimStipend(player, ledger);
-      if (ev.message === "bank" && player) void openBank(player, ledger);
-      if (ev.message === "dealer" && player) void openDealer(player, ledger);
-      if (ev.message === "commons" && player) void openCommons(player, ledger, bizState, pricesState);
-      if (ev.message === "wallet" && player) void openWallet(player);
-      if (ev.message === "jobs" && player) {
-        void openJobBoard(player, ledger, bizState, employmentState);
-      }
-      if (ev.message === "givewallet" && player) {
-        ensureWallet(player);
-        world.sendMessage("§a[dev] wallet granted");
-      }
-      if (ev.message.startsWith("shop ") && player) {
-        const trade = ev.message.slice(5).trim();
-        const business = storefrontBusinessForTrade(bizState, trade);
-        if (!business) {
-          world.sendMessage(`§c[dev] unknown shop trade: ${trade}`);
-          return;
+      switch (command.id) {
+        case "help":
+          for (const line of devHelpLines()) {
+            if (player) player.sendMessage(line);
+            else world.sendMessage(line);
+          }
+          break;
+        case "grant":
+          if (player) {
+            mint(ledger, `p:${player.id}`, 100, currentTick(), "mint:system");
+            world.sendMessage(`§a[dev] granted 100 merids to ${player.nameTag}`);
+          }
+          break;
+        case "audit": {
+          const r = audit(ledger);
+          world.sendMessage(`§e[dev] audit ok=${r.ok} supply=${r.expected} drift=${r.drift}`);
+          break;
         }
-        void openStorefront(player, ledger, bizState, pricesState, business.id);
-      }
-      if (ev.message === "shops" && player) {
-        const list = listCpuBusinesses(bizState)
-          .map((b) => b.trade)
-          .join(", ");
-        world.sendMessage(`§e[dev] shops: ${list}`);
-      }
-      if (ev.message === "produce") {
-        runCpuProduction(bizState, pricesState);
-        saveBusinesses(bizState);
-        savePrices(pricesState);
-        world.sendMessage("§a[dev] forced one CPU production tick");
-      }
-      if (ev.message.startsWith("zone ") && player) {
-        const trade = ev.message.slice(5).trim();
-        const businessId = `cpu_${trade}`;
-        if (
-          !bizState.byId[businessId] ||
-          tradeDef(trade).kind !== "extraction"
-        ) {
-          world.sendMessage(`§c[dev] unknown work-zone trade: ${trade}`);
-          return;
+        case "stipend":
+          if (player) claimStipend(player, ledger);
+          break;
+        case "bank":
+          if (player) void openBank(player, ledger);
+          break;
+        case "dealer":
+          if (player) void openDealer(player, ledger);
+          break;
+        case "commons":
+          if (player) void openCommons(player, ledger, bizState, pricesState);
+          break;
+        case "wallet":
+          if (player) void openWallet(player);
+          break;
+        case "jobs":
+          if (player) void openJobBoard(player, ledger, bizState, employmentState);
+          break;
+        case "givewallet":
+          if (player) {
+            ensureWallet(player);
+            world.sendMessage("§a[dev] wallet granted");
+          }
+          break;
+        case "shop": {
+          if (!player) break;
+          const trade = command.argument!;
+          const business = storefrontBusinessForTrade(bizState, trade);
+          if (!business) {
+            world.sendMessage(`§c[dev] unknown shop trade: ${trade}`);
+            break;
+          }
+          void openStorefront(player, ledger, bizState, pricesState, business.id);
+          break;
         }
-        registerPlayerZone(extractionState, player, businessId, trade);
-        world.sendMessage(`§a[dev] stamped employee test pit for ${trade}`);
-      }
-      if (ev.message.startsWith("publiczone ") && player) {
-        const trade = ev.message.slice(11).trim();
-        const businessId = `cpu_${trade}`;
-        if (
-          !bizState.byId[businessId] ||
-          tradeDef(trade).kind !== "extraction"
-        ) {
-          world.sendMessage(`§c[dev] unknown public-zone trade: ${trade}`);
-          return;
+        case "shops": {
+          const list = listCpuBusinesses(bizState).map((b) => b.trade).join(", ");
+          world.sendMessage(`§e[dev] shops: ${list}`);
+          break;
         }
-        registerPlayerZone(extractionState, player, businessId, trade, true);
-        world.sendMessage(`§a[dev] stamped public test pit for ${trade}`);
-      }
-      if (ev.message.startsWith("station ") && player) {
-        const trade = ev.message.slice(8).trim();
-        void openProcessingStation(
-          player,
-          ledger,
-          processingState,
-          bizState,
-          pricesState,
-          employmentState,
-          trade,
-          `dev:${player.id}:${trade}`
-        );
-      }
-      if (ev.message.startsWith("service ") && player) {
-        const trade = ev.message.slice(8).trim();
-        void openServiceCustomer(
-          player,
-          ledger,
-          serviceState,
-          bizState,
-          pricesState,
-          employmentState,
-          trade
-        );
-      }
-      if (ev.message.startsWith("owner ") && player) {
-        const target = ev.message.slice(6).trim();
-        const business = bizState.byId[target];
-        if (business) {
-          void openOwnershipPanel(player, ledger, bizState, business.trade, business.id);
-        } else {
-          void openOwnershipPanel(player, ledger, bizState, target);
+        case "produce":
+          runCpuProduction(bizState, pricesState);
+          saveBusinesses(bizState);
+          savePrices(pricesState);
+          world.sendMessage("§a[dev] forced one CPU production tick");
+          break;
+        case "zone":
+        case "publiczone": {
+          if (!player) break;
+          const trade = command.argument!;
+          const businessId = `cpu_${trade}`;
+          if (
+            !bizState.byId[businessId] ||
+            tradeDef(trade).kind !== "extraction"
+          ) {
+            world.sendMessage(`§c[dev] unknown work-zone trade: ${trade}`);
+            break;
+          }
+          const publicZone = command.id === "publiczone";
+          registerPlayerZone(
+            extractionState,
+            player,
+            businessId,
+            trade,
+            publicZone
+          );
+          world.sendMessage(
+            `§a[dev] stamped ${publicZone ? "public" : "employee"} test pit for ${trade}`
+          );
+          break;
         }
-      }
-      if (ev.message.startsWith("need ")) {
-        const trade = ev.message.slice(5).trim();
-        const businessId = `cpu_${trade}`;
-        if (!bizState.byId[businessId]) {
-          world.sendMessage(`§c[dev] unknown service trade: ${trade}`);
-          return;
+        case "station": {
+          if (!player) break;
+          const trade = command.argument!;
+          void openProcessingStation(
+            player,
+            ledger,
+            processingState,
+            bizState,
+            pricesState,
+            employmentState,
+            trade,
+            `dev:${player.id}:${trade}`
+          );
+          break;
         }
-        forceSpawnCustomerNeed(serviceState, trade, currentTick(), player);
-        world.sendMessage(`§a[dev] forced one customer need for ${trade}`);
+        case "service":
+          if (player) {
+            void openServiceCustomer(
+              player,
+              ledger,
+              serviceState,
+              bizState,
+              pricesState,
+              employmentState,
+              command.argument!
+            );
+          }
+          break;
+        case "owner": {
+          if (!player) break;
+          const target = command.argument!;
+          const business = bizState.byId[target];
+          if (business) {
+            void openOwnershipPanel(
+              player,
+              ledger,
+              bizState,
+              business.trade,
+              business.id
+            );
+          } else {
+            void openOwnershipPanel(player, ledger, bizState, target);
+          }
+          break;
+        }
+        case "need": {
+          const trade = command.argument!;
+          const businessId = `cpu_${trade}`;
+          if (!bizState.byId[businessId]) {
+            world.sendMessage(`§c[dev] unknown service trade: ${trade}`);
+            break;
+          }
+          forceSpawnCustomerNeed(serviceState, trade, currentTick(), player);
+          world.sendMessage(`§a[dev] forced one customer need for ${trade}`);
+          break;
+        }
       }
       return;
     }
@@ -337,6 +456,7 @@ function boot(): void {
       ev.cancel = true;
       const player = ev.player;
       const speaker = ev.target.nameTag || "Meridian Central Bank";
+      speakNpcPrelude(player, speaker, tags, "bank");
       system.run(
         () => void withNpcSpeaker(player, speaker, () => openBank(player, ledger))
       );
@@ -344,6 +464,7 @@ function boot(): void {
       ev.cancel = true;
       const player = ev.player;
       const speaker = ev.target.nameTag || "Commodity Dealer";
+      speakNpcPrelude(player, speaker, tags, "dealer", "precious_mine");
       system.run(
         () =>
           void withNpcSpeaker(player, speaker, () => openDealer(player, ledger))
@@ -352,6 +473,7 @@ function boot(): void {
       ev.cancel = true;
       const player = ev.player;
       const speaker = ev.target.nameTag || "Commons Steward";
+      speakNpcPrelude(player, speaker, tags, "commons");
       system.run(
         () =>
           void withNpcSpeaker(player, speaker, () =>
@@ -362,6 +484,7 @@ function boot(): void {
       ev.cancel = true;
       const player = ev.player;
       const speaker = ev.target.nameTag || "Employment Clerk";
+      speakNpcPrelude(player, speaker, tags, "jobs");
       system.run(
         () =>
           void withNpcSpeaker(player, speaker, () =>
@@ -376,6 +499,7 @@ function boot(): void {
         const player = ev.player;
         const stationId = ev.target.id;
         const speaker = ev.target.nameTag || tradeDef(trade).name;
+        speakNpcPrelude(player, speaker, tags, "station", trade);
         system.run(
           () =>
             void withNpcSpeaker(player, speaker, () =>
@@ -402,6 +526,7 @@ function boot(): void {
         const speaker = ev.target.nameTag || tradeDef(trade).name;
         const hostDimension = ev.target.dimension.id;
         const hostLocation = ev.target.location;
+        speakNpcPrelude(player, speaker, tags, "service", trade);
         system.run(
           () =>
             void withNpcSpeaker(player, speaker, () =>
@@ -438,6 +563,7 @@ function boot(): void {
         const trade = ownerTag.slice("ew:owner_".length);
         const player = ev.player;
         const speaker = ev.target.nameTag || `${tradeDef(trade).name} Foreman`;
+        speakNpcPrelude(player, speaker, tags, "owner", trade);
         system.run(
           () =>
             void withNpcSpeaker(player, speaker, () =>
@@ -453,6 +579,7 @@ function boot(): void {
         if (!business) return;
         const player = ev.player;
         const speaker = ev.target.nameTag || tradeDef(business.trade).name;
+        speakNpcPrelude(player, speaker, tags, "shop", business.trade);
         system.run(
           () =>
             void withNpcSpeaker(player, speaker, () =>
@@ -468,6 +595,7 @@ function boot(): void {
         if (business) {
           const player = ev.player;
           const speaker = ev.target.nameTag || tradeDef(trade).name;
+          speakNpcPrelude(player, speaker, tags, "shop", trade);
           system.run(
             () =>
               void withNpcSpeaker(player, speaker, () =>
@@ -485,12 +613,34 @@ function boot(): void {
   world.afterEvents.itemUse.subscribe((ev) => {
     if (ev.itemStack.typeId === "ew:wallet") void openWallet(ev.source);
   });
+  world.afterEvents.itemCompleteUse.subscribe((ev) => {
+    noteCompletedFoodUse(
+      foodState,
+      ev.source.id,
+      ev.itemStack.typeId,
+      currentTick()
+    );
+  });
 
   world.afterEvents.entityDie.subscribe((ev) => {
     const player = asPlayer(ev.deadEntity);
-    if (!player || !employmentState.sessions[player.id]) return;
+    if (!player) return;
+    const receipt = settlePlayerDeath(
+      deathState,
+      player,
+      ledger,
+      currentTick()
+    );
+    noteDialogueEvent({
+      kind: "medical",
+      summary: `${player.nameTag} received a ${formatAmount(receipt.due)} merid medical bill`,
+      tick: receipt.tick,
+    });
+    saveBlob(LEDGER_KEY, ledger);
     system.run(() => {
-      clockOut(employmentState, player.id, currentTick(), ledger);
+      if (employmentState.sessions[player.id]) {
+        clockOut(employmentState, player.id, currentTick(), ledger);
+      }
       reclaimCompanyTools(player, "death");
       clearActionbar(player);
     });
@@ -502,12 +652,13 @@ function boot(): void {
     }
     reclaimCompanyTools(ev.player, "death");
     clearActionbar(ev.player);
+    showPendingMedicalReceipt(deathState, ev.player);
   });
 
   const tradeNames = listCpuBusinesses(bizState)
     .map((b) => tradeDef(b.trade).name)
     .join(", ");
-  console.log(`[ew] Economy World Phase E booted. CPU shops: ${tradeNames}`);
+  console.log(`[ew] Economy World Phase F booted. CPU shops: ${tradeNames}`);
 }
 
 system.run(boot);

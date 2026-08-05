@@ -8,7 +8,7 @@ import { loadBlob, saveBlob } from "../core/state";
 import { currentTick } from "../core/scheduler";
 import { matrix } from "../content/matrix";
 import { tradeDef } from "../content/trades";
-import { actionbar, clearActionbar } from "../ui/toast";
+import { clearActionbar, setActionbarContext } from "../ui/toast";
 import { feedback } from "../ui/feedback";
 import { confirmTxn, menuHub } from "../ui/patterns";
 import { bareAmount, merids } from "../ui/theme";
@@ -158,7 +158,7 @@ export async function openJobBoard(
             if (!ok) return;
             const paid = clockOut(employment, player.id, currentTick(), ledger);
             reclaimCompanyTools(player, "clockOut");
-            clearActionbar(player);
+            clearActionbar(player, "employment");
             if (paid > 0) {
               feedback(player, `Piece-rate paid: ${merids(paid)}`, "gain");
             }
@@ -215,7 +215,12 @@ export async function openJobBoard(
           output: 0,
         };
         saveEmployment(employment);
-        actionbar(player, `${tradeDef(business.trade).name} · earned 0`, "info");
+        setActionbarContext(
+          player,
+          "employment",
+          `${tradeDef(business.trade).name} · earned 0`,
+          "info"
+        );
       },
     })),
   });

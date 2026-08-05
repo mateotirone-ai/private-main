@@ -35,6 +35,9 @@ jobs:
       - name: Build behavior pack
         run: npm run build
 
+      - name: Verify release inputs
+        run: npm run verify:pack
+
       - name: Package mcaddon
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -44,8 +47,30 @@ jobs:
           (cd packs/economy_rp && zip -qr "../../dist/Economy World RP.mcpack" . -x "*.DS_Store")
           (cd dist && zip -q "Economy-World-${RELEASE_TAG}.mcaddon" "Economy World BP.mcpack" "Economy World RP.mcpack")
 
+      - name: Verify packaged mcaddon
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/verify/outer dist/verify/bp dist/verify/rp
+          unzip -q "dist/Economy-World-${RELEASE_TAG}.mcaddon" -d dist/verify/outer
+          unzip -q "dist/verify/outer/Economy World BP.mcpack" -d dist/verify/bp
+          unzip -q "dist/verify/outer/Economy World RP.mcpack" -d dist/verify/rp
+          node tools/verify-pack.mjs dist/verify/bp dist/verify/rp
+
       - name: Publish GitHub release asset
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: economy-world/dist/Economy-World-${{ github.ref_name }}.mcaddon
+
+      - name: Verify uploaded release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/uploaded/outer dist/uploaded/bp dist/uploaded/rp
+          gh release download "${RELEASE_TAG}" --pattern "Economy-World-${RELEASE_TAG}.mcaddon" --dir dist/uploaded
+          unzip -q "dist/uploaded/Economy-World-${RELEASE_TAG}.mcaddon" -d dist/uploaded/outer
+          unzip -q "dist/uploaded/outer/Economy World BP.mcpack" -d dist/uploaded/bp
+          unzip -q "dist/uploaded/outer/Economy World RP.mcpack" -d dist/uploaded/rp
+          node tools/verify-pack.mjs dist/uploaded/bp dist/uploaded/rp

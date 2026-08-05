@@ -1,11 +1,13 @@
 {
   "name": "economy-world",
-  "version": "0.5.0",
+  "version": "0.6.0",
+  "phase": "F",
   "private": true,
-  "description": "Economy World - Minecraft Bedrock add-on. Phase E: ownership, auctions, upgrades.",
+  "description": "Economy World - Minecraft Bedrock add-on. Phase F: survival, dialogue, and HUD.",
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",
+    "verify:pack": "node tools/verify-pack.mjs packs/economy_bp packs/economy_rp",
     "watch": "node tools/build.mjs --watch",
     "test": "vitest run",
     "deploy": "node tools/deploy.mjs"
@@ -13,6 +15,7 @@
   "devDependencies": {
     "@minecraft/server": "2.9.0",
     "@minecraft/server-ui": "^2.1.0",
+    "@types/node": "^26.1.2",
     "esbuild": "^0.24.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

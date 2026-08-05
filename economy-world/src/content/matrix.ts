@@ -8,6 +8,8 @@ export type PreciousGood = "gold" | "diamond";
 export interface Matrix {
   stipend: number;
   medical: { flat: number; pctOfWealth: number };
+  food: { recentConsumptionCap: number };
+  dialogue: { recentEventCap: number };
   freelanceRate: number;
   bank: { transferFee: number };
   cash: { denominations: number[]; walletDefaultExtract: number };
@@ -17,6 +19,17 @@ export interface Matrix {
       fadeInTicks: number;
       stayTicks: number;
       fadeOutTicks: number;
+    };
+    hud: {
+      refreshTicks: number;
+      serviceAlertTicks: number;
+      walletChip: {
+        offsetX: number;
+        offsetY: number;
+        width: number;
+        height: number;
+      };
+      priorities: Record<string, number>;
     };
   };
   work: {
