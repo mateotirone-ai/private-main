@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+*.log
+.npm/
+economy-world-phase-a.zip
+/package-lock.json

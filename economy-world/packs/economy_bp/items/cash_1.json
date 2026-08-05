@@ -1,0 +1,14 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "ew:cash_1",
+      "menu_category": { "category": "items", "group": "itemGroup.name.misc" }
+    },
+    "components": {
+      "minecraft:max_stack_size": 64,
+      "minecraft:icon": "ew_cash_1",
+      "minecraft:display_name": { "value": "Merid Note (1)" }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "_comment": "TIER & COST MATRIX - every number here is a PLACEHOLDER flagged for playtest tuning.",
+  "stipend": 250,
+  "medical": { "flat": 100, "pctOfWealth": 0.02 },
+  "freelanceRate": 0.45,
+  "wagePerHourByTier": { "1": 60, "2": 90 },
+  "bank": {
+    "_comment": "⚑ transferFee — master doc §13 lists transfer fee as playtest tuning; 'tiny flat fee'.",
+    "transferFee": 5
+  },
+  "cash": {
+    "_comment": "Denominations locked by layer1-technical-spec.md §3 (ew:cash_1/10/100/1000).",
+    "denominations": [1000, 100, 10, 1]
+  },
+  "dealer": {
+    "_comment": "⚑ daily capacity + softFloor — master doc locks 'price softens with volume' but gives no numbers. Linear soften: mult = 1 - min(1, soldToday/capacity) * (1 - softFloor).",
+    "dailyCapacity": {
+      "gold": 64,
+      "diamond": 16
+    },
+    "softFloor": 0.5
+  },
+  "trades": {
+    "stone_quarry":  { "buyout": 2500,  "t2": { "price": 5000,  "buildMins": 30, "requiresProduced": 5000 } },
+    "ore_mine":      { "buyout": 4000,  "t2": { "price": 8000,  "buildMins": 45, "requiresProduced": 4000 } },
+    "precious_mine": { "buyout": 15000, "t2": { "price": 25000, "buildMins": 90, "requiresProduced": 500 } },
+    "lumber_camp":   { "buyout": 2500,  "t2": { "price": 5000,  "buildMins": 30, "requiresProduced": 5000 } },
+    "crop_farm":     { "buyout": 2000,  "t2": { "price": 4000,  "buildMins": 25, "requiresProduced": 6000 } },
+    "sawmill":       { "buyout": 3500,  "t2": { "price": 7000,  "buildMins": 40, "requiresProduced": 3000 } },
+    "smeltery":      { "buyout": 4500,  "t2": { "price": 9000,  "buildMins": 50, "requiresProduced": 2500 } },
+    "bakery":        { "buyout": 3000,  "t2": { "price": 6000,  "buildMins": 35, "requiresProduced": 3000 } },
+    "general_store": { "buyout": 5000,  "t2": { "price": 10000, "buildMins": 45, "requiresProduced": 0 } }
+  }
+}

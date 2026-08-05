@@ -1,0 +1,234 @@
+/**
+ * Bank NPC — layer1 §4.4 / UI inventory: hub → Deposit · Withdraw · Transfer · Statements.
+ * Money moves ONLY through ledger.ts. Fees from data/matrix.json.
+ */
+import type { Player } from "@minecraft/server";
+import { world } from "@minecraft/server";
+import {
+  balance,
+  cashIn,
+  cashOut,
+  sink,
+  transfer,
+  type LedgerState,
+  type JournalEntry,
+  LedgerError,
+} from "../core/ledger";
+import { transferFee } from "../content/matrix";
+import { currentTick } from "../core/scheduler";
+import { Glyph, money } from "../ui/theme";
+import { Voice } from "../ui/voice";
+import { toast } from "../ui/toast";
+import { menuHub, confirmTxn, managePanel, progressPanel } from "../ui/patterns";
+import { canAffordTransfer, planTransfer } from "./bankMath";
+import { countCashInInventory, takeAllCash, spawnCash } from "./cash";
+
+export function playerAccount(player: Player): `p:${string}` {
+  return `p:${player.id}`;
+}
+
+export async function openBank(player: Player, ledger: LedgerState): Promise<void> {
+  const acct = playerAccount(player);
+  const bal = balance(ledger, acct);
+  await menuHub(player, {
+    title: "Central Bank",
+    glyph: Glyph.bank,
+    context: `${Voice.bankWelcome}\nBalance: ${money(bal)}`,
+    buttons: [
+      { label: "Deposit cash", glyph: Glyph.down, onSelect: () => depositFlow(player, ledger) },
+      { label: "Withdraw cash", glyph: Glyph.up, onSelect: () => withdrawFlow(player, ledger) },
+      { label: "Transfer", glyph: Glyph.contract, onSelect: () => transferFlow(player, ledger) },
+      { label: "Statements", glyph: Glyph.clock, onSelect: () => statementsFlow(player, ledger) },
+    ],
+  });
+}
+
+async function depositFlow(player: Player, ledger: LedgerState): Promise<void> {
+  const acct = playerAccount(player);
+  const { total } = countCashInInventory(player);
+  if (total <= 0) {
+    toast(player, Voice.depositEmpty, "caution");
+    return;
+  }
+  const before = balance(ledger, acct);
+  const ok = await confirmTxn(player, {
+    title: "Deposit",
+    glyph: Glyph.bank,
+    context: "Convert physical cash into your bank balance.",
+    lines: [{ label: "Deposit", amount: total, sense: "gain" }],
+    balanceBefore: before,
+    balanceAfter: before + total,
+  });
+  if (!ok) return;
+  try {
+    const taken = takeAllCash(player);
+    if (taken <= 0) {
+      toast(player, Voice.depositEmpty, "caution");
+      return;
+    }
+    cashIn(ledger, acct, taken, currentTick());
+    toast(player, Voice.depositOk(money(taken)), "gain");
+  } catch (e) {
+    console.error(`[ew] deposit failed: ${e}`);
+    toast(player, Voice.error, "error");
+  }
+}
+
+async function withdrawFlow(player: Player, ledger: LedgerState): Promise<void> {
+  const acct = playerAccount(player);
+  const before = balance(ledger, acct);
+  if (before <= 0) {
+    toast(player, Voice.withdrawFail, "error");
+    return;
+  }
+  const panel = await managePanel(player, {
+    title: "Withdraw",
+    glyph: Glyph.bank,
+    fields: [
+      {
+        type: "slider",
+        label: `Amount (max ${before})`,
+        min: 1,
+        max: before,
+        step: 1,
+        defaultValue: Math.min(before, 100),
+      },
+    ],
+  });
+  if (!panel) return;
+  const amount = Math.floor(Number(panel.values[0]));
+  if (!Number.isFinite(amount) || amount <= 0 || amount > before) {
+    toast(player, Voice.withdrawFail, "error");
+    return;
+  }
+  const ok = await confirmTxn(player, {
+    title: "Withdraw",
+    glyph: Glyph.bank,
+    context: "Cash leaves the vault. It can die with you.",
+    lines: [{ label: "Withdraw", amount, sense: "loss" }],
+    balanceBefore: before,
+    balanceAfter: before - amount,
+  });
+  if (!ok) return;
+  try {
+    cashOut(ledger, acct, amount, currentTick());
+    spawnCash(player, amount);
+    toast(player, Voice.withdrawOk(money(amount)), "caution");
+  } catch (e) {
+    if (e instanceof LedgerError) toast(player, Voice.withdrawFail, "error");
+    else {
+      console.error(`[ew] withdraw failed: ${e}`);
+      toast(player, Voice.error, "error");
+    }
+  }
+}
+
+async function transferFlow(player: Player, ledger: LedgerState): Promise<void> {
+  const acct = playerAccount(player);
+  const before = balance(ledger, acct);
+  const fee = transferFee();
+  const others = world.getAllPlayers().filter((p) => p.id !== player.id);
+  if (others.length === 0) {
+    toast(player, Voice.transferNoPlayers, "caution");
+    return;
+  }
+  if (before <= fee) {
+    toast(player, Voice.transferFailFunds, "error");
+    return;
+  }
+  const maxSend = before - fee;
+  const panel = await managePanel(player, {
+    title: "Transfer",
+    glyph: Glyph.contract,
+    fields: [
+      {
+        type: "dropdown",
+        label: "Recipient",
+        options: others.map((p) => p.name),
+        defaultIndex: 0,
+      },
+      {
+        type: "slider",
+        label: `Amount (fee ${fee} extra)`,
+        min: 1,
+        max: maxSend,
+        step: 1,
+        defaultValue: Math.min(maxSend, 50),
+      },
+    ],
+  });
+  if (!panel) return;
+  const targetIdx = Number(panel.values[0]);
+  const amount = Math.floor(Number(panel.values[1]));
+  const target = others[targetIdx];
+  if (!target) {
+    toast(player, Voice.transferFailTarget, "error");
+    return;
+  }
+  if (!canAffordTransfer(before, amount, fee)) {
+    toast(player, Voice.transferFailFunds, "error");
+    return;
+  }
+  const plan = planTransfer(amount, fee);
+  const ok = await confirmTxn(player, {
+    title: "Transfer",
+    glyph: Glyph.contract,
+    context: `Send to ${target.name}. ${Voice.feeLine(money(fee))}`,
+    lines: [
+      { label: "Send", amount: plan.amount, sense: "loss" },
+      { label: "Fee", amount: plan.fee, sense: "loss" },
+    ],
+    balanceBefore: before,
+    balanceAfter: before - plan.totalDebit,
+  });
+  if (!ok) return;
+  try {
+    const tick = currentTick();
+    // fee first (sink), then transfer — both through the ledger only
+    if (plan.fee > 0) sink(ledger, acct, plan.fee, tick, "sink:fee");
+    transfer(ledger, acct, playerAccount(target), plan.amount, tick, "bank:transfer");
+    toast(player, Voice.transferOk(money(plan.amount), target.name), "gain");
+    toast(target, Voice.transferOk(money(plan.amount), player.name), "gain");
+  } catch (e) {
+    if (e instanceof LedgerError) toast(player, Voice.transferFailFunds, "error");
+    else {
+      console.error(`[ew] transfer failed: ${e}`);
+      toast(player, Voice.error, "error");
+    }
+  }
+}
+
+async function statementsFlow(player: Player, ledger: LedgerState): Promise<void> {
+  const acct = playerAccount(player);
+  const mine = ledger.journal.filter((e) => e.from === acct || e.to === acct).slice(-12);
+  if (mine.length === 0) {
+    await progressPanel(player, {
+      title: "Statements",
+      glyph: Glyph.bank,
+      context: Voice.statementEmpty,
+      rows: [{ label: "No entries", ok: false }],
+    });
+    return;
+  }
+  await progressPanel(player, {
+    title: "Statements",
+    glyph: Glyph.bank,
+    context: `Balance: ${money(balance(ledger, acct))}`,
+    rows: mine.map((e) => ({
+      label: formatEntry(e, acct),
+      ok: e.kind === "mint" || e.kind === "cashIn" || (e.kind === "transfer" && e.to === acct),
+    })),
+  });
+}
+
+function formatEntry(e: JournalEntry, acct: string): string {
+  const dir =
+    e.kind === "transfer"
+      ? e.to === acct
+        ? "+"
+        : "-"
+      : e.kind === "mint" || e.kind === "cashIn"
+        ? "+"
+        : "-";
+  return `#${e.seq} ${e.kind} ${dir}${e.amount}${e.tag ? ` (${e.tag})` : ""}`;
+}
