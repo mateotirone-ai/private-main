@@ -1,4 +1,4 @@
-export type DevPhase = "Core" | "A" | "B" | "C" | "D" | "E" | "F";
+export type DevPhase = "Core" | "A" | "B" | "C" | "D" | "E" | "F" | "G";
 
 export type DevCommandId =
   | "help"
@@ -19,7 +19,8 @@ export type DevCommandId =
   | "station"
   | "service"
   | "owner"
-  | "need";
+  | "need"
+  | "seedtown";
 
 export interface DevCommandSpec {
   id: DevCommandId;
@@ -27,6 +28,7 @@ export interface DevCommandSpec {
   usage: string;
   description: string;
   argument?: string;
+  optionalArgument?: boolean;
 }
 
 /**
@@ -53,6 +55,13 @@ export const DEV_COMMANDS: readonly DevCommandSpec[] = [
   { id: "service", phase: "D", usage: "service <trade>", description: "Open a service host", argument: "trade" },
   { id: "need", phase: "D", usage: "need <trade>", description: "Force one customer need", argument: "trade" },
   { id: "owner", phase: "E", usage: "owner <trade|businessId>", description: "Open buyout or owner management", argument: "target" },
+  {
+    id: "seedtown",
+    phase: "G",
+    usage: "seedtown [townId]",
+    description: "Place a full starter town",
+    optionalArgument: true,
+  },
 ] as const;
 
 export interface ParsedDevCommand {
@@ -65,6 +74,10 @@ export function parseDevCommand(message: string): ParsedDevCommand | undefined {
   const clean = message.trim();
   for (const spec of DEV_COMMANDS) {
     if (!spec.argument && clean === spec.id) return { id: spec.id, spec };
+    if (spec.optionalArgument && clean.startsWith(`${spec.id} `)) {
+      const argument = clean.slice(spec.id.length + 1).trim();
+      return argument ? { id: spec.id, argument, spec } : { id: spec.id, spec };
+    }
     if (!spec.argument || !clean.startsWith(`${spec.id} `)) continue;
     const argument = clean.slice(spec.id.length + 1).trim();
     if (argument) return { id: spec.id, argument, spec };
@@ -73,7 +86,7 @@ export function parseDevCommand(message: string): ParsedDevCommand | undefined {
 }
 
 export function devHelpLines(): string[] {
-  const phases: DevPhase[] = ["Core", "A", "B", "C", "D", "E", "F"];
+  const phases: DevPhase[] = ["Core", "A", "B", "C", "D", "E", "F", "G"];
   const lines: string[] = ["§6Economy World dev commands"];
   for (const phase of phases) {
     const commands = DEV_COMMANDS.filter((command) => command.phase === phase);

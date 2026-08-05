@@ -35,6 +35,7 @@ export function emptyBusinesses(): BusinessesState {
 function ensureBusinessDefaults(business: Business): void {
   business.tier = business.tier ?? 1;
   business.owner = business.owner ?? "cpu";
+  business.ownerName ??= null;
   business.productionRemainder ??= 0;
   business.ownerAccount ??= null;
   business.priceOverridePct ??= null;
@@ -59,6 +60,7 @@ export function loadBusinesses(): BusinessesState {
         trade,
         tier: 1,
         owner: "cpu",
+        ownerName: null,
         storage: Math.floor(def.storageCap / 2),
         producedTotal: 0,
         productionRemainder: 0,

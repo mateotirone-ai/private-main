@@ -83,6 +83,41 @@ assert(
 const textureList = new Set(json(resolve(rp, "textures_list.json")));
 assert(textureList.has(walletTexture), "ew_wallet is absent from textures_list");
 
+const hud = json(resolve(rp, "ui/hud_screen.json"));
+const hudMerge = hud.root_panel?.modifications?.find(
+  (entry) => entry.array_name === "controls"
+);
+assert(
+  hudMerge?.value?.["ew_wallet_chip@hud.ew_wallet_chip"],
+  "wallet chip is not merged into hud.root_panel"
+);
+const cashData = hud.ew_wallet_chip?.controls?.[0]?.cash_data;
+assert(
+  hud.ew_wallet_chip?.$cash_update_prefix === "ewcash:",
+  "wallet chip update prefix does not match the script bridge"
+);
+assert(
+  cashData?.bindings?.some(
+    (binding) =>
+      binding.binding_name === "#hud_title_text_string" &&
+      binding.binding_type === "global"
+  ),
+  "wallet chip does not consume the global title update channel"
+);
+assert(
+  cashData?.bindings?.some(
+    (binding) =>
+      binding.binding_name_override === "#preserved_cash_text" &&
+      binding.binding_condition === "visibility_changed"
+  ),
+  "wallet chip does not preserve cash-only updates"
+);
+assert(
+  main.includes('CASH_HUD_PREFIX = "ewcash:"') &&
+    main.includes('CASH_OBJECTIVE = "ew_cash"'),
+  "compiled HUD script is missing its cash bridge or scoreboard mirror"
+);
+
 for (const path of [...filesUnder(bp), ...filesUnder(rp)]) {
   assert(
     !/node_(depleted|recovering)/i.test(path),
@@ -96,5 +131,5 @@ for (const path of [...filesUnder(bp), ...filesUnder(rp)]) {
 }
 
 console.log(
-  `verified Phase ${expectedPhase} ${pkg.version}: manifest, main.js, wallet, node cleanup`
+  `verified Phase ${expectedPhase} ${pkg.version}: manifest, main.js, wallet, HUD merge, node cleanup`
 );

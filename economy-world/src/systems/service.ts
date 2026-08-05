@@ -31,28 +31,44 @@ import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./p
 import { noteBusinessRevenue } from "./ownership";
 import {
   serviceOrderTotal,
+  claimCustomerNeed,
+  canFulfillClaimedNeed,
   createCustomerRequest,
+  releaseCustomerNeedClaim,
   rollRequestQty,
+  type ServiceClaim,
   type CustomerRequest,
   type ServiceHost,
 } from "./serviceMath";
+import { noteOnboardingOutput } from "./onboarding";
 
 export interface ServiceState {
-  schema: 2;
+  schema: 3;
   hosts: Record<string, ServiceHost>;
   requests: Record<string, CustomerRequest>;
+  claims: Record<string, ServiceClaim>;
 }
 
 const KEY = "ew:service";
 const CUSTOMER_ACCOUNT = "sys:customers";
 
 export function emptyService(): ServiceState {
-  return { schema: 2, hosts: {}, requests: {} };
+  return { schema: 3, hosts: {}, requests: {}, claims: {} };
 }
 
 export function loadService(): ServiceState {
   const state = loadBlob<ServiceState>(KEY);
-  return state?.schema === 2 ? state : emptyService();
+  if (!state) return emptyService();
+  const normalized: ServiceState = {
+    schema: 3,
+    hosts: state.hosts ?? {},
+    requests: state.requests ?? {},
+    claims: state.claims ?? {},
+  };
+  for (const hostId of Object.keys(normalized.claims)) {
+    if (!normalized.requests[hostId]) delete normalized.claims[hostId];
+  }
+  return normalized;
 }
 
 export function saveService(state: ServiceState): void {
@@ -147,6 +163,7 @@ export function forceSpawnCustomerNeed(
     tick
   );
   state.requests[host.id] = request;
+  delete state.claims[host.id];
   saveService(state);
   return request;
 }
@@ -169,6 +186,11 @@ function serviceStaffPlayers(
     if (session?.businessId === businessId) staff.set(player.id, player);
   }
   return [...staff.values()];
+}
+
+function displayGood(good: string): string {
+  if (good === "log") return "logs";
+  return good.replaceAll("_", " ");
 }
 
 function notifyNeed(
@@ -219,6 +241,7 @@ export function spawnServiceNeeds(
       tick
     );
     state.requests[host.id] = request;
+    delete state.claims[host.id];
     notifyNeed(request, host, businesses, employment);
   }
   saveService(state);
@@ -276,7 +299,16 @@ export async function openServiceCustomer(
     feedback(player, "No customer is waiting.", "info");
     return;
   }
+  if (
+    !claimCustomerNeed(service.claims, service.requests, hostId, player.id, currentTick())
+  ) {
+    feedback(player, "Another worker is already serving this customer.", "caution");
+    return;
+  }
+  saveService(service);
   if (business.storage < request.qty) {
+    releaseCustomerNeedClaim(service.claims, hostId, player.id);
+    saveService(service);
     feedback(player, "The requested stock is unavailable.", "caution");
     return;
   }
@@ -294,7 +326,7 @@ export async function openServiceCustomer(
   const ok = await confirmTxn(player, {
     title: "Serve customer",
     facts: [
-      `Need: ${request.qty} ${request.good}`,
+      `Need: ${request.qty} ${displayGood(request.good)}`,
       `Business: ${tradeDef(trade).name}`,
       `Order total: ${merids(total)}`,
     ],
@@ -303,45 +335,80 @@ export async function openServiceCustomer(
     balanceAfter: before,
     narrator: "Active service earns the better margin.",
   });
-  if (!ok) return;
-
-  const customerBalance = balance(ledger, CUSTOMER_ACCOUNT);
-  if (customerBalance < total) {
-    mint(
-      ledger,
-      CUSTOMER_ACCOUNT,
-      total - customerBalance,
-      currentTick(),
-      "mint:system"
-    );
+  if (!ok) {
+    releaseCustomerNeedClaim(service.claims, hostId, player.id);
+    saveService(service);
+    return;
   }
-  transfer(
-    ledger,
-    CUSTOMER_ACCOUNT,
-    bizAccount(business.id),
-    total,
-    currentTick(),
-    "service:customer"
+  const liveRequest = canFulfillClaimedNeed(
+    service.claims,
+    service.requests,
+    hostId,
+    player.id
   );
-  noteBusinessRevenue(businesses, business.id, total);
-  business.storage -= request.qty;
-  adjustStock(prices, request.good, -request.qty);
-  const session = employmentSession(employment, player.id);
-  if (session?.businessId === business.id) {
-    const progress = recordEmployeeOutput(employment, player.id, request.qty);
-    saveEmployment(employment);
-    if (progress) {
-      setActionbarContext(
-        player,
-        "employment",
-        `${tradeDef(trade).name} · +${progress.increment} · total ${progress.total}`,
-        "info"
+  const liveBusiness = liveRequest
+    ? businesses.byId[liveRequest.businessId] ??
+      storefrontBusinessForTrade(businesses, trade)
+    : undefined;
+  if (!liveRequest || !liveBusiness) {
+    releaseCustomerNeedClaim(service.claims, hostId, player.id);
+    saveService(service);
+    feedback(player, "That customer was already handled.", "caution");
+    return;
+  }
+  if (liveBusiness.storage < liveRequest.qty) {
+    releaseCustomerNeedClaim(service.claims, hostId, player.id);
+    saveService(service);
+    feedback(player, "The requested stock is unavailable.", "caution");
+    return;
+  }
+
+  try {
+    const customerBalance = balance(ledger, CUSTOMER_ACCOUNT);
+    if (customerBalance < total) {
+      mint(
+        ledger,
+        CUSTOMER_ACCOUNT,
+        total - customerBalance,
+        currentTick(),
+        "mint:system"
       );
     }
+    transfer(
+      ledger,
+      CUSTOMER_ACCOUNT,
+      bizAccount(liveBusiness.id),
+      total,
+      currentTick(),
+      "service:customer"
+    );
+    noteBusinessRevenue(businesses, liveBusiness.id, total);
+    liveBusiness.storage -= liveRequest.qty;
+    adjustStock(prices, liveRequest.good, -liveRequest.qty);
+    const session = employmentSession(employment, player.id);
+    if (session?.businessId === liveBusiness.id) {
+      const progress = recordEmployeeOutput(employment, player.id, liveRequest.qty);
+      saveEmployment(employment);
+      if (progress) {
+        noteOnboardingOutput(player);
+        setActionbarContext(
+          player,
+          "employment",
+          `${tradeDef(trade).name} · +${progress.increment} · total ${progress.total}`,
+          "info"
+        );
+      }
+    }
+    delete service.requests[hostId];
+    delete service.claims[hostId];
+    saveService(service);
+    saveBusinesses(businesses);
+    savePrices(prices);
+    feedback(player, `Order served: ${merids(total)}`, "gain");
+  } catch (error) {
+    releaseCustomerNeedClaim(service.claims, hostId, player.id);
+    saveService(service);
+    console.error(`[ew] service fulfillment failed: ${error}`);
+    feedback(player, "Service order failed to settle.", "error");
   }
-  delete service.requests[hostId];
-  saveService(service);
-  saveBusinesses(businesses);
-  savePrices(prices);
-  feedback(player, `Order served: ${merids(total)}`, "gain");
 }

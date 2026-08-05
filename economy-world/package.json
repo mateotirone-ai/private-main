@@ -1,9 +1,9 @@
 {
   "name": "economy-world",
-  "version": "0.6.0",
-  "phase": "F",
+  "version": "0.7.0",
+  "phase": "G",
   "private": true,
-  "description": "Economy World - Minecraft Bedrock add-on. Phase F: survival, dialogue, and HUD.",
+  "description": "Economy World - Minecraft Bedrock add-on. Phase G: ship prep and starter-town onboarding.",
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",

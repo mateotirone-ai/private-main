@@ -9,9 +9,9 @@
 5. **Player sales settle as physical cash.** Dealer, commons, and freelancer sales enter the ledger, immediately use `cashOut`, then pack into an existing wallet or spawn notes. Bank balances do not rise. Piece-rate wages are the sole current direct-to-bank exception.
 6. **NPC interactions speak.** Confirmations and denials inside an NPC-opened flow use a name-tagged chat line from that NPC. Toasts are reserved for item/system events. P2 receipts remain forms.
 
-## Phase F (current)
+## Phase G (current)
 
-Built against `docs/layer1-technical-spec.md` §4.7–4.12 and the master design. Survival, food demand, dialogue, and HUD rails are now live on top of Phase E ownership.
+Built against `docs/layer1-technical-spec.md` §4.7–§7 and the master design. Survival/dialogue/HUD from Phase F remain live, and Phase G now focuses on end-to-end playability, starter-town bootstrap, onboarding, multiplayer correctness, and ship audit outputs.
 
 ### Phase C live-test fixes included
 - **Toasts:** subtitle-only rendering avoids Bedrock's intrinsically oversized title font. White copy plus a small status-color marker is capped at `42` characters with `2/100/10` tick timing. Overflow shortens only at word boundaries.
@@ -46,7 +46,7 @@ Built against `docs/layer1-technical-spec.md` §4.7–4.12 and the master design
 
 ### Phase E ownership systems
 - **Business model migration:** business state now persists tier `1|2|3`, owner account, configurable price override, accrued revenue balance, revenue history cache, employee stubs, construction/upgrade state, and successor lineage.
-- **Appraisal + buyout:** owner panel computes valuation from tier base + inventory + recent revenue + upgrade spend and runs an immediate sealed-bid auction (player vs bank vs CPU). Losing bids do not charge; player wins settle via `sink(..., "sink:buyout")`.
+- **Appraisal + buyout:** the storefront shows tier, storage, inventory value, recent revenue, and valuation before an open ascending auction. Bank/CPU/player standing bids remain visible; only a winning player settles through `sink(..., "sink:buyout")`.
 - **CPU successor:** when a player wins a buyout, a CPU successor business is seeded for the same trade while the purchased business becomes player-owned under a distinct business id.
 - **Owner management panel (P4 rails):** owner can collect earnings, set bounded market-price multiplier, add/remove employee stubs, and start tier upgrades funded by business account (`sink:construction`).
 - **Upgrade scheduler:** upgrades queue with tier-target durations, complete asynchronously, and apply new tier output multipliers once construction ends.
@@ -60,9 +60,31 @@ Built against `docs/layer1-technical-spec.md` §4.7–4.12 and the master design
 - **Dialogue v1:** `data/dialogue.json` supplies personality-filtered market/service/civic templates. NPC tags `ew:personality_practical`, `ew:personality_wry`, and `ew:personality_neighborly` render live `{good}`, `{price}`, `{playerName}`, `{ownerName}`, `{stock}`, and `{recentEvent}` slots.
 - **Recent events:** storefront sales/supply, buyouts, construction, food consumption, and medical bills feed a bounded persisted event ring used by NPC gossip.
 - **HUD:** `ew_cash` mirrors wallet + loose physical cash only; bank balance never appears. One priority manager owns the actionbar (`service > employment > construction > default`) and always retains the cash chip. `ew_skill` maps the Layer-1 skill-license score to the XP level. The danger hook is present but always off until PvP zones exist.
-- **Storefront buyout:** CPU storefronts show `This business is for sale`, display live evaluation, and start the sealed-bid auction from the shopkeeper. Owners see management at their storefront. The `owner` dev command remains a shortcut only.
+- **Storefront buyout:** CPU storefronts show `This business is for sale`, display live evaluation, and start the open ascending auction from the shopkeeper. Owners see management at their storefront. The `owner` dev command remains a shortcut only.
 - **Pack cleanup:** deploy now deletes destination development-pack folders before copying, preventing removed Phase D custom node JSON from surviving. Existing development packs must be replaced once; old world blocks from obsolete `ew:node_*` pits require a fresh world or manual cleanup.
 - **Release verification:** release CI inspects source packs, nested `.mcpack` files, and the re-downloaded GitHub asset for Phase/version markers, compiled `main.js`, wallet resolution, and banned node references.
+
+### Phase E/F live-test fix batch
+- **Custom-item reload persistence:** the BP manifest declares both `data` and `script` modules. Pack verification fails if either disappears, and reclaim logic can remove only configured company-tool item types—never `ew:wallet` or `ew:cash_*`.
+- **HUD cash chip:** `hud_screen.json` merges a persistent `ew_wallet_chip` directly into `hud.root_panel`. A hidden, zero-duration `ewcash:` title update preserves cash-only text through the global title binding while job/service text stays on the normal actionbar. The same `loose notes + wallet balance` total feeds both this bridge and the `ew_cash` mirror; no bank value enters either. Toasts temporarily pause hidden updates so receipts remain readable. Tests and release verification assert the complete merge/prefix/preserved-binding chain.
+- **Graceful debits:** every player-triggered debit is preflighted and catches `LedgerError`. Business declines use `Stone Quarry can't cover this — 5,000 needed, 0 available.`-style language instead of unhandled promise rejections.
+- **Owner capital:** management includes `Deposit funds to business`, transferring personal bank funds to the business account with `owner:capital`. Businesses still pay construction from their own accounts.
+- **Open auction:** the bank opens from evaluation, the player raises visibly, CPU/bank counters are visible, the player may walk away each round, and the configured round cap ends bidding. The rare bank luck boost can re-enter only in later rounds.
+- **Public labels:** player screens use `[Trade] — owned by [name]`; internal business IDs remain state-only.
+- **Plain statements:** journal kinds/tags are translated to player language, e.g. `Medical bill — 1,062 merids` and `Business deposit — 500 merids`.
+- **World firsts:** first player-owned business and first Tier-3 business are persisted and broadcast to the whole world. The same banner rail is reserved for the later province milestone.
+
+### Phase G ship prep
+- **Data-driven starter town:** `data/towns.json` defines civic hosts, all ten storefronts, processing stations, service hosts, and extraction/public work zones. `/scriptevent ew:dev seedtown [townId]` now places and reuses tagged hosts on real terrain via surface scanning.
+- **Town docs:** `docs/town-manifest.md` documents manifest shape, anchor modes, placement scan bounds, host tags, and repeatable seeding behavior.
+- **First-join onboarding:** initial spawn now guarantees wallet issuance and stipend delivery on the physical-cash rail (`mint:stipend -> cashOut -> wallet/notes`) plus a per-player checklist actionbar from jobs-board visit to first paycheck.
+- **Multiplayer hardening:** one buyer at a time per business auction; service needs are claim-gated per host; storefront and processing both revalidate state after confirmation; extraction nodes reserve harvest before deferred mutation; unpaid payroll sessions stay open instead of being deleted.
+- **State durability:** ledger now flushes on a short cadence when new journal entries exist, reducing crash-loss windows between major operations.
+- **Controller/couch pass (Phase G scope):**
+  - Storefront buy no longer forces a detail interstitial tap before confirm.
+  - Service needs render human-readable good names.
+  - Construction durations now render as seconds/minutes instead of raw ticks.
+  - **Flagged for restructuring:** open ascending auction still exceeds the <=3-tap loop target by design; a condensed one-screen raise flow is required before Realm invite.
 
 ## Dev commands
 
@@ -98,6 +120,9 @@ Run `/scriptevent ew:dev help` in-game for this same grouped list.
 
 ### Phase E
 - `/scriptevent ew:dev owner <trade|businessId>`
+
+### Phase G
+- `/scriptevent ew:dev seedtown [townId]` — place a full starter town from `data/towns.json`
 
 NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`, `ew:shop_<trade>`, `ew:biz_<businessId>`, `ew:owner_<trade>`, `ew:station_<trade>`, `ew:service_<trade>`, `ew:personality_<personality>`.
 
@@ -135,7 +160,13 @@ NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`
 - `test/death.test.ts` — medical total rounding, underfunded cap, ledger conservation, and one-shot receipt lifecycle
 - `test/food.test.ts` — edible goods, consumption history, and complete loot-override coverage
 - `test/dialogue.test.ts` — slot rendering, personality filters, role pools, and recent-state substitution
-- `test/hud.test.ts` — cash-only chip, one-context priority, expiry, and Layer-1 danger-off policy
+- `test/hud.test.ts` — cash-only totals, root-panel merge, preserved title-channel binding, one-context priority, expiry, and Layer-1 danger-off policy
+- `test/ownership.test.ts` — open-auction rounds/cap/bank jump, owner-capital conservation, and exact graceful-decline copy
+- `test/bank.test.ts` — plain-language medical and owner-capital statement entries
+- `test/customItemsPersistence.test.ts` — BP data/script modules plus wallet/cash item and atlas registration
+- `test/towns.test.ts` — starter-town manifest coverage (civics, ten storefront trades, extraction/public zone coverage)
+- `test/onboarding.test.ts` — first-paycheck checklist sequencing and completion gating
+- `test/service.test.ts` — per-host need-claim exclusivity for concurrent workers
 
 ## Phase C archive
 
@@ -180,51 +211,47 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 
 ---
 
-## ⚑ Placeholders (Phase B–F)
+## ⚑ consolidated tuning table (Phase G sweep)
 
-| Key | Value | Why ⚑ |
-|---|---|---|
-| `bank.transferFee` | `5` | Master §13 tuning |
-| `dealer.dailyCapacity.gold` | `64` | Soften volume not quantified |
-| `dealer.dailyCapacity.diamond` | `16` | Same |
-| `dealer.softFloor` | `0.5` | Soften floor not specified |
-| `cash.walletDefaultExtract` | `100` | Partial-extraction slider default not specified |
-| `medical.flat` / `medical.pctOfWealth` | `100` / `0.02` | Master locks flat + small wealth percentage, not the exact values |
-| `food.recentConsumptionCap` | `32` | Consumption history storage cap is not specified |
-| `dialogue.recentEventCap` | `32` | Dialogue v1 event-memory storage cap is not specified |
-| `trades.*.producePerTick` / `storageCap` | see `data/trades.json` | Master §13 “CPU restock rates” |
-| `cpuProduceEveryMinutes` | `10` | Aligned to price tick; not locked |
-| `fishery` trade + buyout `2200` / t2 | matrix + trades.json | Layer1 says 10 trades; Phase A matrix had 9 |
-| `prices.goods.fish` | base `4`, etc. | Needed for fishery |
-| `ui.toast.*` | subtitle `42` chars, timing `2/100/10` ticks | Third live-test pass: title font overflowed; docs give no numeric limits |
-| `ui.hud.refreshTicks` / `serviceAlertTicks` | `10` / `100` | HUD refresh and temporary customer-alert duration are not quantified |
-| `ui.hud.walletChip` | offset `(-8, 8)`, size `210×18` | JSON-UI couch layout geometry is not quantified |
-| `ui.hud.priorities` | default `10`, construction `40`, employment `60`, service `80` | One-context ordering is locked; numeric weights are implementation detail |
-| `work.nodeStampOffsets` | 3×3 pit, spacing `2`, depth `-1` (`9` nodes) | Authored test-pit count/layout not specified |
-| `work.nodeStages` | depleted `100`, ready `300` ticks | Visible staging is locked; timing is not |
-| `work.processingSweepTicks` | `20` | Processing job polling cadence not specified |
-| `work.processingTicksPerSecond` | `20` | Platform conversion stored in data so UI never hardcodes seconds |
-| `work.processing.sawmill` | `2 log → 4 lumber`, `200` ticks | Ratios/timing not quantified |
-| `work.processing.smeltery` | `2 iron ore → 1 iron`, `300` ticks | Ratios/timing not quantified |
-| `work.processing.bakery` | `3 wheat → 2 bread`, `160` ticks | Ratios/timing not quantified |
-| `work.service.spawnEveryTicks` | `600` | Customer cadence not specified |
-| `work.service.requestQtyMin` / `requestQtyMax` | `1` / `4` | Service order-size range not specified |
-| `work.service.largeOrderChance` | `0.08` | Large-order incidence is unspecified |
-| `work.service.largeOrderQtyMin` / `largeOrderQtyMax` | `6` / `10` | Large-order size band is unspecified |
-| `work.service.activeMarginBonus` | `0.2` | Active margin must beat passive; exact bonus absent |
-| `work.employment.pieceRateByTradeTier` | quarry `2/3`; ore `4/6`; precious `25/35`; lumber `2/3`; crop `1/2`; sawmill `3/5`; smeltery `6/9`; bakery `3/4`; fishery `2/3`; store `2/3` | Per-trade tier piece rates are not quantified |
-| `work.employment.toolQualityByTier` | tier 1 → `1`; tier 2 → `2` | Company-tool quality/Unbreaking scale not quantified |
-| `work.employment.offlineEmployeeStep` / `offlineEmployeeCap` | `0.12` / `0.9` | Employee lift and offline cap are behavior-only in docs |
-| `ownership.revenueWindowTicks` / `revenueHistoryCap` | `24000` / `128` | Revenue cache window/cap not quantified |
-| `ownership.tierOutputMultiplierByTier` | t1 `1`, t2 `1.35`, t3 `1.7` | Phase E tier output bonuses not quantified |
-| `ownership.evaluation.*` | see `data/matrix.json` | Valuation component weights/factors are unspecified |
-| `ownership.auction.*` | see `data/matrix.json` | Bank/CPU bid spread and luck-boost envelope are unspecified |
-| `ownership.management.priceOverride*` | `0.8`–`1.25` | Owner price bounds are policy-level, not numeric |
-| `ownership.management.maxEmployeeSlots` | `4` | Employee stub cap not specified |
-| `ownership.management.employeeSlotHireCost` | `250` | Stub-slot hire fee not specified |
-| `ownership.management.upgradeCostByTradeTier` | see `data/matrix.json` | Phase E trade-tier upgrade costs not numerically specified |
-| `ownership.management.upgradeDurationTicksByTier` | t2 `2400`, t3 `3600` | Upgrade durations are behavior-only in docs |
-| `ownership.management.successorSpawnOffset` | `(6, 0, 0)` | Successor storefront placement offset is unspecified |
+| Key | Current value | Controls | Runtime status | Recommendation |
+|---|---|---|---|---|
+| `stipend` | `250` | First-join grant size | Live | Keep small; tune after first-hour retention pass |
+| `medical.flat` / `medical.pctOfWealth` | `100` / `0.02` | Death medical bill severity | Live | Keep debt-free but punitive; review after PvE death rates |
+| `bank.transferFee` | `5` | Flat transfer sink | Live | Keep tiny; raise only if transfer spam appears |
+| `cash.walletDefaultExtract` | `100` | Wallet partial-unpack default | Live | Align with common cash handling in playtests |
+| `dealer.dailyCapacity.gold` / `diamond` | `64` / `16` | Dealer softening onset per commodity | Live | Tune with weekly reserve inflow, not single-session feel |
+| `dealer.softFloor` | `0.5` | Dealer minimum payout multiplier | Live | Keep >= `0.4` so dealer remains usable under load |
+| `cpuProduceEveryMinutes` | `10` | CPU production cadence | Live | Keep synchronized with price tick while tuning supply |
+| `trades.*.producePerTick` / `storageCap` | see `data/trades.json` | Per-trade shelf pressure | Live | Primary economy knob; tune before touching wages |
+| `prices.goods.*` (incl. fish) | see `data/prices.json` | Market baselines/bands/drift | Live | Tune in one pass after stock/throughput pass |
+| `food.recentConsumptionCap` | `32` | Food demand memory depth | Live | Increase only if dialogue feels forgetful |
+| `dialogue.recentEventCap` | `32` | NPC world-event memory depth | Live | Keep until event volume justifies larger ring |
+| `ui.toast.maxChars` / timing | `42`, `2/100/10` | Toast fit/legibility timing | Live | Tune on couch readability only; never clip mid-word |
+| `ui.hud.refreshTicks` | `10` | Cash-chip refresh cadence | Live | Keep unless visual lag is observed |
+| `ui.hud.serviceAlertTicks` | `100` | Service alert dwell time | Live | Keep short; reduce if alert contention rises |
+| `ui.hud.walletChip` | `(-8,8)`, `210x18` | Cash-chip placement/size | Live | Re-validate at 10ft on console before invite |
+| `ui.hud.priorities` | default `10`, construction `40`, employment `60`, onboarding `70`, service `80` | Actionbar context precedence | Live | Preserve ordering; only tune if onboarding is obscured |
+| `work.nodeStampOffsets` | 3x3, spacing `2`, depth `-1` | Extraction pit geometry | Live | Replace with authored map footprints per town later |
+| `work.nodeStages` | depleted `100`, recovering `300` | Node regen pacing | Live | Tune for anti-AFK feel after 2-player test |
+| `work.processingSweepTicks` / `processingTicksPerSecond` | `20` / `20` | Processing completion cadence/time display | Live | Keep engine-aligned unless perf demands batching |
+| `work.processing.*` ratios/durations | sawmill `2->4 @200`, smeltery `2->1 @300`, bakery `3->2 @160` | Refining throughput | Live | Tune against price ladder and piece rates together |
+| `work.service.spawnEveryTicks` | `600` | Need spawn cadence | Live | Tune by queue starvation/overload metrics |
+| `work.service.requestQty*` + large-order params | `1-4`, chance `0.08`, large `6-10` | Service demand size distribution | Live | Keep rare large orders; tune for manageable bursts |
+| `work.service.activeMarginBonus` | `0.2` | Active-serve premium | Live | Keep clearly above passive margin |
+| `work.employment.pieceRateByTradeTier` | see `data/matrix.json` | Per-unit wages by trade/tier | Live | Tune only after supply/price pass |
+| `work.employment.toolQualityByTier` | `1->1`, `2->2` | Company tool quality | Live | Low priority; tune for feel, not economy |
+| `work.employment.offlineEmployeeStep` / cap | `0.12` / `0.9` | Offline owner output lift | Live | Keep below active-owner multiplier ceiling |
+| `ownership.revenueWindowTicks` / `revenueHistoryCap` | `24000` / `128` | Appraisal revenue memory | Live | Tune after longer-world telemetry |
+| `ownership.tierOutputMultiplierByTier` | `1 / 1.35 / 1.7` | Tier production advantage | Live | Rebalance against upgrade costs/ROI |
+| `ownership.evaluation.*` | see `data/matrix.json` | Buyout valuation breakdown | Live | Tune after observing bid-close deltas |
+| `ownership.auction.*` | see `data/matrix.json` (`maxRounds: 4`, `minRaisePct: 0.05`) | Auction pacing/counter behavior | Live | Condense UI loop before raising round count |
+| `ownership.management.priceOverride*` | `0.8-1.25` | Owner pricing bounds | Live | Keep bounded while market stabilizes |
+| `ownership.management.maxEmployeeSlots` | `4` | Hiring cap | Live (stub) | Hold until real hiring replaces stub flow |
+| `ownership.management.employeeSlotHireCost` | `250` | Slot hire fee | Configured, not charged | Wire to real hire flow or remove |
+| `ownership.management.upgradeCostByTradeTier` | see `data/matrix.json` | Tier-up sink costs | Live | Tune with target payback windows |
+| `ownership.management.upgradeDurationTicksByTier` | `2400` / `3600` | Tier-up construction time | Live | Tune with session-length goals |
+| `ownership.management.successorSpawnOffset` | `(6,0,0)` | CPU successor placement offset | Live | Validate per town footprint to avoid overlap |
+| `towns.*.placement` / offsets | see `data/towns.json` | Starter-town host and zone geometry | Live | Tune on real map after first seed pass |
 
 ### Dealer soften formula (Phase B, unchanged)
 ```

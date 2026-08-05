@@ -10,6 +10,7 @@ import { matrix } from "../content/matrix";
 import { tradeDef } from "../content/trades";
 import { clearActionbar, setActionbarContext } from "../ui/toast";
 import { feedback } from "../ui/feedback";
+import { insufficientFundsMessage } from "../ui/funds";
 import { confirmTxn, menuHub } from "../ui/patterns";
 import { bareAmount, merids } from "../ui/theme";
 import {
@@ -20,6 +21,12 @@ import {
 import { playerAccount } from "./bank";
 import { pieceRatePayout } from "./employmentMath";
 import { issueCompanyTool, reclaimCompanyTools } from "./companyTools";
+import { businessDisplayName } from "./businessMath";
+import {
+  noteOnboardingClockIn,
+  noteOnboardingJobBoard,
+  noteOnboardingPaycheck,
+} from "./onboarding";
 
 export interface EmploymentSession {
   playerId: string;
@@ -34,6 +41,12 @@ export interface EmploymentSession {
 export interface EmploymentState {
   schema: 2;
   sessions: Record<string, EmploymentSession>;
+}
+
+export interface ClockOutResult {
+  paid: number;
+  due: number;
+  settled: boolean;
 }
 
 const KEY = "ew:employment";
@@ -104,7 +117,7 @@ function payOutput(
     );
     return payout;
   } catch (error) {
-    if (error instanceof LedgerError) return 0;
+    if (error instanceof LedgerError) return -1;
     throw error;
   }
 }
@@ -114,13 +127,18 @@ export function clockOut(
   playerId: string,
   nowTick: number,
   ledger: LedgerState
-): number {
+): ClockOutResult {
   const session = state.sessions[playerId];
-  if (!session) return 0;
+  if (!session) return { paid: 0, due: 0, settled: true };
+  const due = pieceRatePayout(session.ratePerUnit, session.output);
   const payout = payOutput(playerId, session, nowTick, ledger);
+  if (payout < 0) {
+    saveEmployment(state);
+    return { paid: 0, due, settled: false };
+  }
   delete state.sessions[playerId];
   saveEmployment(state);
-  return payout;
+  return { paid: payout, due, settled: true };
 }
 
 export async function openJobBoard(
@@ -129,10 +147,13 @@ export async function openJobBoard(
   businesses: BusinessesState,
   employment: EmploymentState
 ): Promise<void> {
+  noteOnboardingJobBoard(player);
   const active = employment.sessions[player.id];
   if (active) {
     const business = businesses.byId[active.businessId];
-    const name = business ? tradeDef(business.trade).name : active.businessId;
+    const name = business
+      ? businessDisplayName(business)
+      : tradeDef(active.trade).name;
     const pending = pieceRatePayout(active.ratePerUnit, active.output);
     await menuHub(player, {
       title: "Employment",
@@ -156,11 +177,24 @@ export async function openJobBoard(
               narrator: "Output verified. Payroll is less sentimental.",
             });
             if (!ok) return;
-            const paid = clockOut(employment, player.id, currentTick(), ledger);
-            reclaimCompanyTools(player, "clockOut");
-            clearActionbar(player, "employment");
-            if (paid > 0) {
-              feedback(player, `Piece-rate paid: ${merids(paid)}`, "gain");
+            const result = clockOut(employment, player.id, currentTick(), ledger);
+            if (result.settled) {
+              reclaimCompanyTools(player, "clockOut");
+              clearActionbar(player, "employment");
+            }
+            if (result.paid > 0) {
+              noteOnboardingPaycheck(player);
+              feedback(player, `Piece-rate paid: ${merids(result.paid)}`, "gain");
+            } else if (pending > 0 && business) {
+              feedback(
+                player,
+                insufficientFundsMessage(
+                  tradeDef(business.trade).name,
+                  result.due,
+                  balance(ledger, bizAccount(business.id))
+                ),
+                "error"
+              );
             }
           },
         },
@@ -174,13 +208,13 @@ export async function openJobBoard(
     facts: [`Openings: ${Object.values(businesses.byId).length}`],
     narrator: "A steady piece rate is ownership's less dramatic cousin.",
     buttons: Object.values(businesses.byId).map((business) => ({
-      label: `${tradeDef(business.trade).name} — ${bareAmount(pieceRateFor(business.trade, business.tier))}/unit`,
+      label: `${businessDisplayName(business)} · ${bareAmount(pieceRateFor(business.trade, business.tier))}/unit`,
       onSelect: async () => {
         const before = balance(ledger, playerAccount(player));
         const ok = await confirmTxn(player, {
           title: "Clock in",
           facts: [
-            `Business: ${tradeDef(business.trade).name}`,
+            `Business: ${businessDisplayName(business)}`,
             `Piece rate: ${merids(pieceRateFor(business.trade, business.tier))} per unit`,
           ],
           lines: [],
@@ -215,6 +249,7 @@ export async function openJobBoard(
           output: 0,
         };
         saveEmployment(employment);
+        noteOnboardingClockIn(player);
         setActionbarContext(
           player,
           "employment",

@@ -79,6 +79,8 @@ export interface Matrix {
       luckBoostChance: number;
       luckBoostMinPct: number;
       luckBoostMaxPct: number;
+      maxRounds: number;
+      minRaisePct: number;
     };
     management: {
       priceOverrideMinPct: number;

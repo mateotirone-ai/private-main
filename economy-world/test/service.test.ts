@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  canFulfillClaimedNeed,
+  claimCustomerNeed,
   createCustomerRequest,
+  releaseCustomerNeedClaim,
   rollRequestQty,
   serviceOrderTotal,
 } from "../src/systems/serviceMath";
@@ -59,5 +62,36 @@ describe("service customer needs", () => {
         () => 0
       )
     ).toBe(6);
+  });
+
+  it("allows only one player to claim and fulfill a need", () => {
+    const request = createCustomerRequest(
+      {
+        id: "entity:bakery-host",
+        trade: "bakery",
+        businessId: "cpu_bakery",
+        dimensionId: "minecraft:overworld",
+        location: { x: 1, y: 64, z: 2 },
+        speaker: "Bakery",
+      },
+      "bread",
+      2,
+      600
+    );
+    const claims: Record<string, { playerId: string; claimedTick: number }> = {};
+    const requests = { [request.hostId]: request };
+    expect(claimCustomerNeed(claims, requests, request.hostId, "p1", 601)).toBe(
+      true
+    );
+    expect(claimCustomerNeed(claims, requests, request.hostId, "p2", 602)).toBe(
+      false
+    );
+    expect(
+      canFulfillClaimedNeed(claims, requests, request.hostId, "p1")
+    ).toEqual(request);
+    releaseCustomerNeedClaim(claims, request.hostId, "p1");
+    expect(claimCustomerNeed(claims, requests, request.hostId, "p2", 603)).toBe(
+      true
+    );
   });
 });

@@ -37,6 +37,7 @@ import {
   type EmploymentState,
 } from "./employment";
 import { countItem } from "./cash";
+import { noteOnboardingOutput } from "./onboarding";
 
 export interface ProcessingState {
   schema: 2;
@@ -198,19 +199,37 @@ export async function openProcessingStation(
           if (!ok) return;
 
           try {
+            const busy = state.jobs[stationId];
+            if (busy && !busy.complete) {
+              feedback(player, "This station is already running a queue.", "caution");
+              return;
+            }
+            const latestInputBusiness =
+              storefrontBusinessForTrade(businesses, numbers.inputTrade);
+            if (!latestInputBusiness) {
+              feedback(player, "Processing businesses are unavailable.", "error");
+              return;
+            }
+            const latestMaxBatches = Math.floor(
+              latestInputBusiness.storage / numbers.inputQty
+            );
+            if (latestMaxBatches < batches) {
+              feedback(player, "Not enough business raw stock.", "caution");
+              return;
+            }
             const session = employmentSession(employment, player.id);
             const started = startProcessing(
               stationId,
               trade,
               currentTick(),
-              inputBusiness.storage,
+              latestInputBusiness.storage,
               numbers,
               session?.businessId === outputBusiness.id
                 ? player.id
                 : undefined,
               batches
             );
-            inputBusiness.storage = started.inputStockAfter;
+            latestInputBusiness.storage = started.inputStockAfter;
             adjustStock(
               prices,
               content.inputGood,
@@ -265,6 +284,7 @@ export function startProcessingJob(
           .getAllPlayers()
           .find((candidate) => candidate.id === job.employeeId);
         if (player && progress) {
+          noteOnboardingOutput(player);
           setActionbarContext(
             player,
             "employment",

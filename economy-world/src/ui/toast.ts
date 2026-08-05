@@ -6,10 +6,9 @@ import type { Player } from "@minecraft/server";
 import { matrix } from "../content/matrix";
 import {
   activeActionbarContext,
-  cashChipText,
-  layerOneDangerState,
   type ActionbarContext,
 } from "./hudMath";
+import { cashChipText, layerOneDangerState } from "./hudMath";
 import { Ink } from "./theme";
 
 export type ToastKind = "gain" | "loss" | "caution" | "info" | "error";
@@ -38,14 +37,11 @@ const actionbarContexts = new Map<
   string,
   Map<string, StoredActionbarContext>
 >();
-let carriedCashProvider: (player: Player) => number = () => 0;
+const cashTitleBlockedUntil = new Map<string, number>();
+export const CASH_HUD_PREFIX = "ewcash:";
 let hudTickProvider: () => number = () => 0;
 
-export function configureHudProviders(
-  cashProvider: (player: Player) => number,
-  tickProvider: () => number
-): void {
-  carriedCashProvider = cashProvider;
+export function configureHudTickProvider(tickProvider: () => number): void {
   hudTickProvider = tickProvider;
 }
 
@@ -79,12 +75,36 @@ export function toast(player: Player, message: string, kind: ToastKind = "info")
   const cfg = matrix.ui.toast;
   const lines = formatToastText(message);
   const marker = `${color}${KIND_MARK[kind]}${Ink.reset}`;
+  cashTitleBlockedUntil.set(
+    player.id,
+    hudTickProvider() +
+      cfg.fadeInTicks +
+      cfg.stayTicks +
+      cfg.fadeOutTicks
+  );
   player.onScreenDisplay.setTitle(`${Ink.reset} `, {
     subtitle: `${marker} ${Ink.paper}${lines.title}${Ink.reset}`,
     fadeInDuration: cfg.fadeInTicks,
     stayDuration: cfg.stayTicks,
     fadeOutDuration: cfg.fadeOutTicks,
   });
+}
+
+/** Hidden title update consumed by the persistent JSON-UI wallet chip. */
+export function updateCashChip(player: Player, carriedCash: number): boolean {
+  const tick = hudTickProvider();
+  if ((cashTitleBlockedUntil.get(player.id) ?? 0) > tick) return false;
+  const text = cashChipText(
+    carriedCash,
+    undefined,
+    layerOneDangerState()
+  );
+  player.onScreenDisplay.setTitle(`${CASH_HUD_PREFIX}${text}`, {
+    fadeInDuration: 0,
+    stayDuration: 0,
+    fadeOutDuration: 0,
+  });
+  return true;
 }
 
 export function setActionbarContext(
@@ -122,16 +142,10 @@ export function refreshActionbar(player: Player, tick: number): void {
     [...(contexts?.values() ?? [])],
     tick
   ) as StoredActionbarContext | undefined;
-  const chip = cashChipText(
-    carriedCashProvider(player),
-    undefined,
-    layerOneDangerState()
-  );
-  const context = selected
-    ? ` ${Ink.reset}· ${KIND_INK[selected.kind]}${selected.message}`
-    : "";
   player.onScreenDisplay.setActionBar(
-    `${Ink.gold}${chip}${context}${Ink.reset}`
+    selected
+      ? `${KIND_INK[selected.kind]}${selected.message}${Ink.reset}`
+      : ""
   );
 }
 
@@ -148,4 +162,9 @@ export function clearActionbar(player: Player, key?: string): void {
   if (key) actionbarContexts.get(player.id)?.delete(key);
   else actionbarContexts.delete(player.id);
   refreshActionbar(player, hudTickProvider());
+}
+
+export function clearPlayerUiState(playerId: string): void {
+  actionbarContexts.delete(playerId);
+  cashTitleBlockedUntil.delete(playerId);
 }

@@ -6,7 +6,7 @@
 import type { Player, Container } from "@minecraft/server";
 import { ItemStack } from "@minecraft/server";
 import { cashDenominations } from "../content/matrix";
-import { breakIntoCash, sumCash } from "./bankMath";
+import { breakIntoCash, carriedCashTotal, sumCash } from "./bankMath";
 
 export const WALLET_ID = "ew:wallet";
 const WALLET_BAL_KEY = "ew:bal";
@@ -70,7 +70,7 @@ export function countCarriedCash(player: Player): { total: number; loose: number
   const loose = countLooseCash(player).total;
   const w = findWallet(player);
   const wallet = w ? getWalletBalance(w.item) : 0;
-  return { total: loose + wallet, loose, wallet };
+  return { total: carriedCashTotal(loose, wallet), loose, wallet };
 }
 
 /** Alias kept for older call sites. */

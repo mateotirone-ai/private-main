@@ -12,6 +12,7 @@ export interface BizSnap {
   trade: string;
   tier: 1 | 2 | 3;
   owner: "cpu" | string;
+  ownerName: string | null;
   storage: number;
   producedTotal: number;
   productionRemainder?: number;
@@ -41,6 +42,7 @@ export function seedCpuBusinesses(): Record<string, BizSnap> {
       trade,
       tier: 1,
       owner: "cpu",
+      ownerName: null,
       storage: Math.floor(def.storageCap / 2),
       producedTotal: 0,
       productionRemainder: 0,
@@ -54,6 +56,15 @@ export function seedCpuBusinesses(): Record<string, BizSnap> {
     };
   }
   return byId;
+}
+
+export function businessDisplayName(
+  business: Pick<BizSnap, "trade" | "owner" | "ownerName">
+): string {
+  const name = tradeDef(business.trade).name;
+  return business.owner === "cpu"
+    ? `${name} — owned by Meridian`
+    : `${name} — owned by ${business.ownerName ?? "a player"}`;
 }
 
 /** Pure CPU production step. Returns units added. */

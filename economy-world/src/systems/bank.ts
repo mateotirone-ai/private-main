@@ -12,7 +12,6 @@ import {
   sink,
   transfer,
   type LedgerState,
-  type JournalEntry,
   LedgerError,
 } from "../core/ledger";
 import { transferFee } from "../content/matrix";
@@ -23,6 +22,8 @@ import { feedback } from "../ui/feedback";
 import { menuHub, confirmTxn, managePanel, progressPanel } from "../ui/patterns";
 import { canAffordTransfer, planTransfer } from "./bankMath";
 import { countCarriedCash, takeAllCarriedCash, spawnCash } from "./cash";
+import { statementLine } from "./statementMath";
+import { insufficientFundsMessage } from "../ui/funds";
 
 export function playerAccount(player: Player): `p:${string}` {
   return `p:${player.id}`;
@@ -193,6 +194,19 @@ async function transferFlow(player: Player, ledger: LedgerState): Promise<void> 
   if (!ok) return;
   try {
     const tick = currentTick();
+    const available = balance(ledger, acct);
+    if (available < plan.totalDebit) {
+      feedback(
+        player,
+        insufficientFundsMessage(
+          "Your bank account",
+          plan.totalDebit,
+          available
+        ),
+        "error"
+      );
+      return;
+    }
     if (plan.fee > 0) sink(ledger, acct, plan.fee, tick, "sink:fee");
     transfer(ledger, acct, playerAccount(target), plan.amount, tick, "bank:transfer");
     feedback(player, Voice.transferOk(merids(plan.amount), target.name), "gain");
@@ -225,20 +239,8 @@ async function statementsFlow(player: Player, ledger: LedgerState): Promise<void
     facts: [`Balance: ${bareAmount(balance(ledger, acct))}`],
     narrator: Voice.statementNarrator,
     rows: mine.map((e) => ({
-      label: formatEntry(e, acct),
-      ok: e.kind === "mint" || e.kind === "cashIn" || (e.kind === "transfer" && e.to === acct),
+      label: statementLine(e, acct).label,
+      ok: statementLine(e, acct).positive,
     })),
   });
-}
-
-function formatEntry(e: JournalEntry, acct: string): string {
-  const dir =
-    e.kind === "transfer"
-      ? e.to === acct
-        ? "+"
-        : "-"
-      : e.kind === "mint" || e.kind === "cashIn"
-        ? "+"
-        : "-";
-  return `#${e.seq} ${e.kind} ${dir}${bareAmount(e.amount)}${e.tag ? ` (${e.tag})` : ""}`;
 }

@@ -4,8 +4,39 @@ import {
 } from "../src/core/ledger";
 import { planTransfer, canAffordTransfer, breakIntoCash, sumCash } from "../src/systems/bankMath";
 import { transferFee, cashDenominations } from "../src/content/matrix";
+import { statementLine } from "../src/systems/statementMath";
 
 describe("bank transfer fee logic", () => {
+  it("renders statement entries in plain language", () => {
+    expect(
+      statementLine(
+        {
+          seq: 1,
+          tick: 10,
+          kind: "sink",
+          from: "p:a",
+          amount: 1062,
+          tag: "sink:medical",
+        },
+        "p:a"
+      ).label
+    ).toBe("Medical bill — 1,062 merids");
+    expect(
+      statementLine(
+        {
+          seq: 2,
+          tick: 11,
+          kind: "transfer",
+          from: "p:a",
+          to: "b:stone",
+          amount: 500,
+          tag: "owner:capital",
+        },
+        "p:a"
+      ).label
+    ).toBe("Business deposit — 500 merids");
+  });
+
   it("reads the flat fee from data/matrix.json", () => {
     expect(transferFee()).toBeGreaterThan(0);
     expect(Number.isInteger(transferFee())).toBe(true);

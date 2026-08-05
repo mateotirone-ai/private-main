@@ -1,8 +1,8 @@
-# ECONOMY WORLD — Phase F
+# ECONOMY WORLD — Phase G
 
 The living-economy Bedrock add-on. Design authority in `docs/`.
 
-**Phase F:** death/medical settlement, closed-loop food demand, state-aware NPC dialogue, and a cash-only HUD on top of Phase E ownership. See `NOTES.md`.
+**Phase G:** ship prep with data-driven starter-town seeding, first-join onboarding, multiplayer race hardening, and tuning/console audit outputs. See `NOTES.md`.
 
 ## Setup
 1. Node 20+ · Minecraft Bedrock
@@ -15,10 +15,11 @@ The living-economy Bedrock add-on. Design authority in `docs/`.
 
 ## Dev hooks
 - `/scriptevent ew:dev help` prints every available command, grouped by phase.
+- `/scriptevent ew:dev seedtown [townId]` places a full starter town from `data/towns.json`.
 - Tags: `ew:npc_jobs`, `ew:station_<trade>`, `ew:service_<trade>` plus Phase C tags
 
 ## Phase map
-A ✅ → B ✅ → C ✅ → D ✅ → E ✅ → F ✅ → G ship
+A ✅ → B ✅ → C ✅ → D ✅ → E ✅ → F ✅ → G ✅ ship prep
 
 ## Rules
 - Money moves ONLY through `Ledger`

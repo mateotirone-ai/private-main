@@ -36,6 +36,7 @@
         "default": 10,
         "construction": 40,
         "employment": 60,
+        "onboarding": 70,
         "service": 80
       }
     }
@@ -118,13 +119,16 @@
       }
     },
     "auction": {
+      "_comment": "⚑ Open-auction round cap and minimum raise are live-test tuning; bid/luck ranges remain Phase E placeholders.",
       "bankBidMinPct": 0.9,
       "bankBidMaxPct": 1.08,
       "cpuBidMinPct": 0.86,
       "cpuBidMaxPct": 1.04,
       "luckBoostChance": 0.08,
       "luckBoostMinPct": 0.03,
-      "luckBoostMaxPct": 0.1
+      "luckBoostMaxPct": 0.1,
+      "maxRounds": 4,
+      "minRaisePct": 0.05
     },
     "management": {
       "priceOverrideMinPct": 0.8,

@@ -60,3 +60,18 @@ export function sumCash(stacks: { denom: number; count: number }[]): number {
   for (const s of stacks) n += s.denom * s.count;
   return n;
 }
+
+export function carriedCashTotal(
+  looseNotes: number,
+  walletBalance: number
+): number {
+  if (
+    !Number.isInteger(looseNotes) ||
+    looseNotes < 0 ||
+    !Number.isInteger(walletBalance) ||
+    walletBalance < 0
+  ) {
+    throw new Error("invalid carried cash");
+  }
+  return looseNotes + walletBalance;
+}

@@ -1,6 +1,6 @@
 /**
- * ECONOMY WORLD — Phase F boot.
- * A: ledger · B: bank/dealer · C: prices/trades · D: work/employment · E: ownership · F: survival/dialogue/HUD
+ * ECONOMY WORLD — Phase G boot.
+ * A: ledger · B: bank/dealer · C: prices/trades · D: work/employment · E: ownership · F: survival/dialogue/HUD · G: ship prep
  *
  * Early-execution rule (Bedrock 1.26+): no world touches at module top-level.
  * All boot + world event subscriptions run inside system.run(...).
@@ -13,7 +13,12 @@ import { every, startScheduler, currentTick } from "./core/scheduler";
 import { openBank } from "./systems/bank";
 import { openDealer } from "./systems/dealer";
 import { claimStipend } from "./systems/stipend";
-import { loadDealerState, saveDealerState, rollDealerDay } from "./systems/dealerState";
+import {
+  loadDealerState,
+  saveDealerState,
+  rollDealerDay,
+  type DealerState,
+} from "./systems/dealerState";
 import {
   loadPrices,
   savePrices,
@@ -35,7 +40,7 @@ import { openCommons } from "./systems/commons";
 import { openWallet } from "./systems/wallet";
 import { ensureWallet } from "./systems/cash";
 import { tradeDef } from "./content/trades";
-import { speakAs, withNpcSpeaker } from "./ui/feedback";
+import { clearSpeakerContext, speakAs, withNpcSpeaker } from "./ui/feedback";
 import {
   clockOut,
   loadEmployment,
@@ -43,7 +48,7 @@ import {
   type EmploymentState,
 } from "./systems/employment";
 import { reclaimCompanyTools } from "./systems/companyTools";
-import { clearActionbar } from "./ui/toast";
+import { clearActionbar, clearPlayerUiState } from "./ui/toast";
 import {
   loadExtraction,
   registerPlayerZone,
@@ -64,6 +69,7 @@ import {
   startServiceJob,
   type ServiceState,
 } from "./systems/service";
+import { seedTown } from "./systems/town";
 import {
   openOwnershipPanel,
   setSuccessorSpawnHook,
@@ -91,6 +97,10 @@ import {
 } from "./systems/dialogue";
 import { formatAmount } from "./ui/theme";
 import { startHudJob } from "./systems/hud";
+import {
+  ensureFirstJoinOnboarding,
+  noteOnboardingPaycheck,
+} from "./systems/onboarding";
 
 const LEDGER_KEY = "ew:ledger";
 let ledger: LedgerState;
@@ -103,6 +113,8 @@ let serviceState: ServiceState;
 let deathState: DeathState;
 let foodState: FoodState;
 let dialogueState: DialogueState;
+let dealerState: DealerState;
+let lastSavedLedgerSeq = 0;
 
 function asPlayer(e: { typeId: string } | undefined): Player | undefined {
   if (!e || e.typeId !== "minecraft:player") return undefined;
@@ -149,7 +161,9 @@ function speakNpcPrelude(
 
 function boot(): void {
   ledger = loadBlob<LedgerState>(LEDGER_KEY) ?? emptyLedger();
+  lastSavedLedgerSeq = ledger.seq;
   pricesState = loadPrices();
+  dealerState = loadDealerState();
   bizState = loadBusinesses();
   employmentState = loadEmployment();
   extractionState = loadExtraction();
@@ -174,8 +188,14 @@ function boot(): void {
 
   every("ledger:save", 20 * 30, () => {
     saveBlob(LEDGER_KEY, ledger);
+    lastSavedLedgerSeq = ledger.seq;
     savePrices(pricesState);
     saveBusinesses(bizState);
+  });
+  every("ledger:flush", 20, () => {
+    if (ledger.seq === lastSavedLedgerSeq) return;
+    saveBlob(LEDGER_KEY, ledger);
+    lastSavedLedgerSeq = ledger.seq;
   });
   every("ledger:audit", 24000, () => {
     const r = audit(ledger);
@@ -187,9 +207,8 @@ function boot(): void {
     }
   });
   every("dealer:dayroll", 24000, (tick) => {
-    const s = loadDealerState();
-    rollDealerDay(s, tick);
-    saveDealerState(s);
+    rollDealerDay(dealerState, tick);
+    saveDealerState(dealerState);
   });
 
   startPricingJob(
@@ -272,7 +291,7 @@ function boot(): void {
           if (player) void openBank(player, ledger);
           break;
         case "dealer":
-          if (player) void openDealer(player, ledger);
+          if (player) void openDealer(player, ledger, dealerState);
           break;
         case "commons":
           if (player) void openCommons(player, ledger, bizState, pricesState);
@@ -392,6 +411,24 @@ function boot(): void {
           world.sendMessage(`§a[dev] forced one customer need for ${trade}`);
           break;
         }
+        case "seedtown": {
+          if (!player) break;
+          try {
+            const seeded = seedTown(
+              player,
+              extractionState,
+              serviceState,
+              bizState,
+              command.argument
+            );
+            world.sendMessage(
+              `§a[dev] seeded town ${seeded.townId}: ${seeded.hostCount} hosts, ${seeded.zoneCount} zones`
+            );
+          } catch (error) {
+            world.sendMessage(`§c[dev] seedtown failed: ${error}`);
+          }
+          break;
+        }
       }
       return;
     }
@@ -400,7 +437,7 @@ function boot(): void {
       const player = asPlayer(ev.sourceEntity);
       if (!player) return;
       if (ev.message === "bank") void openBank(player, ledger);
-      if (ev.message === "dealer") void openDealer(player, ledger);
+      if (ev.message === "dealer") void openDealer(player, ledger, dealerState);
       if (ev.message === "commons") void openCommons(player, ledger, bizState, pricesState);
       if (ev.message === "wallet") void openWallet(player);
       if (ev.message === "jobs") {
@@ -467,7 +504,9 @@ function boot(): void {
       speakNpcPrelude(player, speaker, tags, "dealer", "precious_mine");
       system.run(
         () =>
-          void withNpcSpeaker(player, speaker, () => openDealer(player, ledger))
+          void withNpcSpeaker(player, speaker, () =>
+            openDealer(player, ledger, dealerState)
+          )
       );
     } else if (tags.includes("ew:npc_commons")) {
       ev.cancel = true;
@@ -639,26 +678,36 @@ function boot(): void {
     saveBlob(LEDGER_KEY, ledger);
     system.run(() => {
       if (employmentState.sessions[player.id]) {
-        clockOut(employmentState, player.id, currentTick(), ledger);
+        const result = clockOut(employmentState, player.id, currentTick(), ledger);
+        if (result.paid > 0) noteOnboardingPaycheck(player);
       }
       reclaimCompanyTools(player, "death");
       clearActionbar(player);
     });
   });
   world.afterEvents.playerSpawn.subscribe((ev) => {
-    if (ev.initialSpawn) return;
+    if (ev.initialSpawn) {
+      ensureFirstJoinOnboarding(ev.player, ledger);
+      saveBlob(LEDGER_KEY, ledger);
+      return;
+    }
     if (employmentState.sessions[ev.player.id]) {
-      clockOut(employmentState, ev.player.id, currentTick(), ledger);
+      const result = clockOut(employmentState, ev.player.id, currentTick(), ledger);
+      if (result.paid > 0) noteOnboardingPaycheck(ev.player);
     }
     reclaimCompanyTools(ev.player, "death");
     clearActionbar(ev.player);
     showPendingMedicalReceipt(deathState, ev.player);
   });
+  world.afterEvents.playerLeave.subscribe((ev) => {
+    clearPlayerUiState(ev.playerId);
+    clearSpeakerContext(ev.playerId);
+  });
 
   const tradeNames = listCpuBusinesses(bizState)
     .map((b) => tradeDef(b.trade).name)
     .join(", ");
-  console.log(`[ew] Economy World Phase F booted. CPU shops: ${tradeNames}`);
+  console.log(`[ew] Economy World Phase G booted. CPU shops: ${tradeNames}`);
 }
 
 system.run(boot);

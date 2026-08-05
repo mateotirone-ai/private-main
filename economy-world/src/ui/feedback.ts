@@ -46,3 +46,7 @@ export function feedback(
   }
   toast(player, message, kind);
 }
+
+export function clearSpeakerContext(playerId: string): void {
+  speakers.delete(playerId);
+}

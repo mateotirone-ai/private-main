@@ -2,16 +2,16 @@
   "format_version": 2,
   "header": {
     "name": "Economy World RP",
-    "description": "The living economy - resource pack (Phase F Emerald Edition)",
+    "description": "The living economy - resource pack (Phase G Emerald Edition)",
     "uuid": "11265421-239d-4a2f-bd90-f2ed963f04a5",
-    "version": [0, 6, 0],
+    "version": [0, 7, 0],
     "min_engine_version": [1, 26, 0]
   },
   "modules": [
     {
       "type": "resources",
       "uuid": "1ec0d79e-938b-4559-934f-2ab29dc50194",
-      "version": [0, 6, 0]
+      "version": [0, 7, 0]
     }
   ]
 }

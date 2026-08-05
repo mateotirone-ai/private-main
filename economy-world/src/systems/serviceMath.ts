@@ -28,6 +28,11 @@ export interface ServiceHost {
   speaker: string;
 }
 
+export interface ServiceClaim {
+  playerId: string;
+  claimedTick: number;
+}
+
 export interface NeedRollConfig {
   minQty: number;
   maxQty: number;
@@ -75,4 +80,37 @@ export function createCustomerRequest(
     qty,
     createdTick,
   };
+}
+
+export function claimCustomerNeed(
+  claims: Record<string, ServiceClaim>,
+  requests: Record<string, CustomerRequest>,
+  hostId: string,
+  playerId: string,
+  tick: number
+): boolean {
+  if (!requests[hostId]) return false;
+  const existing = claims[hostId];
+  if (existing && existing.playerId !== playerId) return false;
+  claims[hostId] = { playerId, claimedTick: tick };
+  return true;
+}
+
+export function releaseCustomerNeedClaim(
+  claims: Record<string, ServiceClaim>,
+  hostId: string,
+  playerId: string
+): void {
+  if (claims[hostId]?.playerId === playerId) delete claims[hostId];
+}
+
+export function canFulfillClaimedNeed(
+  claims: Record<string, ServiceClaim>,
+  requests: Record<string, CustomerRequest>,
+  hostId: string,
+  playerId: string
+): CustomerRequest | undefined {
+  const claim = claims[hostId];
+  if (!claim || claim.playerId !== playerId) return undefined;
+  return requests[hostId];
 }

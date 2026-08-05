@@ -1,0 +1,80 @@
+{
+  "_comment": "⚑ Phase G starter-town offsets and host spacing are first-pass layout tuning for real terrain playtests.",
+  "towns": [
+    {
+      "id": "starter",
+      "name": "Starter Town",
+      "dimensionId": "minecraft:overworld",
+      "anchor": { "mode": "player" },
+      "placement": {
+        "surfaceScanUp": 24,
+        "surfaceScanDown": 48
+      },
+      "defaults": {
+        "npcTypeId": "minecraft:npc",
+        "personalityTag": "ew:personality_practical",
+        "markerTag": "ew:town_starter"
+      },
+      "civics": [
+        {
+          "id": "bank",
+          "nameTag": "Meridian Central Bank",
+          "roleTag": "ew:npc_bank",
+          "offset": { "x": 0, "y": 0, "z": 0 }
+        },
+        {
+          "id": "dealer",
+          "nameTag": "Commodity Dealer",
+          "roleTag": "ew:npc_dealer",
+          "offset": { "x": 5, "y": 0, "z": 0 },
+          "personalityTag": "ew:personality_wry"
+        },
+        {
+          "id": "commons",
+          "nameTag": "Commons Steward",
+          "roleTag": "ew:npc_commons",
+          "offset": { "x": 10, "y": 0, "z": 0 },
+          "personalityTag": "ew:personality_neighborly"
+        },
+        {
+          "id": "jobs",
+          "nameTag": "Employment Clerk",
+          "roleTag": "ew:npc_jobs",
+          "offset": { "x": 15, "y": 0, "z": 0 }
+        }
+      ],
+      "storefronts": [
+        { "trade": "stone_quarry", "offset": { "x": -18, "y": 0, "z": 16 } },
+        { "trade": "ore_mine", "offset": { "x": -12, "y": 0, "z": 16 } },
+        { "trade": "precious_mine", "offset": { "x": -6, "y": 0, "z": 16 } },
+        { "trade": "lumber_camp", "offset": { "x": 0, "y": 0, "z": 16 } },
+        { "trade": "crop_farm", "offset": { "x": 6, "y": 0, "z": 16 } },
+        { "trade": "fishery", "offset": { "x": 12, "y": 0, "z": 16 } },
+        { "trade": "sawmill", "offset": { "x": -18, "y": 0, "z": 23 } },
+        { "trade": "smeltery", "offset": { "x": -12, "y": 0, "z": 23 } },
+        { "trade": "bakery", "offset": { "x": -6, "y": 0, "z": 23 } },
+        { "trade": "general_store", "offset": { "x": 0, "y": 0, "z": 23 } }
+      ],
+      "stations": [
+        { "trade": "sawmill", "offset": { "x": -18, "y": 0, "z": 28 } },
+        { "trade": "smeltery", "offset": { "x": -12, "y": 0, "z": 28 } },
+        { "trade": "bakery", "offset": { "x": -6, "y": 0, "z": 28 } }
+      ],
+      "serviceHosts": [
+        { "trade": "bakery", "offset": { "x": -2, "y": 0, "z": 28 } },
+        { "trade": "general_store", "offset": { "x": 4, "y": 0, "z": 28 } }
+      ],
+      "workZones": [
+        { "trade": "stone_quarry", "public": false, "offset": { "x": -24, "y": 0, "z": -10 } },
+        { "trade": "ore_mine", "public": false, "offset": { "x": -18, "y": 0, "z": -10 } },
+        { "trade": "precious_mine", "public": false, "offset": { "x": -12, "y": 0, "z": -10 } },
+        { "trade": "lumber_camp", "public": false, "offset": { "x": -6, "y": 0, "z": -10 } },
+        { "trade": "crop_farm", "public": false, "offset": { "x": 0, "y": 0, "z": -10 } },
+        { "trade": "fishery", "public": false, "offset": { "x": 6, "y": 0, "z": -10 } },
+        { "trade": "stone_quarry", "public": true, "offset": { "x": 12, "y": 0, "z": -10 } },
+        { "trade": "lumber_camp", "public": true, "offset": { "x": 18, "y": 0, "z": -10 } },
+        { "trade": "crop_farm", "public": true, "offset": { "x": 24, "y": 0, "z": -10 } }
+      ]
+    }
+  ]
+}

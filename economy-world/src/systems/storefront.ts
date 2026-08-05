@@ -16,6 +16,7 @@ import { currentTick } from "../core/scheduler";
 import { bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
 import { feedback } from "../ui/feedback";
+import { insufficientFundsMessage } from "../ui/funds";
 import { menuHub, catalog, confirmTxn } from "../ui/patterns";
 import { countItem, takeItems, giveItem } from "./cash";
 import {
@@ -140,7 +141,6 @@ async function buyFlow(
       {
         name: `${displayGood(def.good)} ×1`,
         price: unit,
-        detailFacts: [`Good: ${displayGood(def.good)}`, `Stock: ${biz.storage}`],
         onBuy: () => confirmBuy(player, ledger, bizState, prices, biz, 1, unit),
       },
       {
@@ -179,7 +179,11 @@ async function confirmBuy(
   const acct = playerAccount(player);
   const before = balance(ledger, acct);
   if (before < total) {
-    feedback(player, Voice.transferFailFunds, "error");
+    feedback(
+      player,
+      insufficientFundsMessage("Your bank account", total, before),
+      "error"
+    );
     return;
   }
   const ok = await confirmTxn(player, {
@@ -194,10 +198,15 @@ async function confirmBuy(
     narrator: Voice.shopWelcome,
   });
   if (!ok) return;
+  const settled = bizState.byId[biz.id];
+  if (!settled || settled.storage < qty) {
+    feedback(player, Voice.shopEmpty, "caution");
+    return;
+  }
   try {
     transfer(ledger, acct, bizAccount(biz.id), total, currentTick(), "shop:buy");
     noteBusinessRevenue(bizState, biz.id, total);
-    live.storage -= qty;
+    settled.storage -= qty;
     adjustStock(prices, def.good, -qty);
     giveItem(player, def.item, qty);
     saveBusinesses(bizState);
@@ -212,7 +221,17 @@ async function confirmBuy(
     const line = pickStorefrontFlavor(biz.trade, "buy");
     if (line) feedback(player, line, "info");
   } catch (e) {
-    if (e instanceof LedgerError) feedback(player, Voice.transferFailFunds, "error");
+    if (e instanceof LedgerError) {
+      feedback(
+        player,
+        insufficientFundsMessage(
+          "Your bank account",
+          total,
+          balance(ledger, acct)
+        ),
+        "error"
+      );
+    }
     else {
       console.error(`[ew] shop buy failed: ${e}`);
       feedback(player, Voice.error, "error");
@@ -239,6 +258,22 @@ async function sellFlow(
     qty,
     matrix.freelanceRate
   );
+  const businessAccount = bizAccount(biz.id);
+  if (
+    !biz.id.startsWith("cpu_") &&
+    balance(ledger, businessAccount) < payout
+  ) {
+    feedback(
+      player,
+      insufficientFundsMessage(
+        tradeDef(biz.trade).name,
+        payout,
+        balance(ledger, businessAccount)
+      ),
+      "error"
+    );
+    return;
+  }
   // for mint-tier goods sold at storefront (precious_mine), use base*rate via current pinned to base
   const acct = playerAccount(player);
   const before = balance(ledger, acct);
@@ -255,22 +290,39 @@ async function sellFlow(
     narrator: Voice.shopWelcome,
   });
   if (!ok) return;
-  const taken = takeItems(player, def.item, qty);
-  if (taken !== qty) {
-    feedback(player, Voice.error, "error");
-    return;
-  }
+  let taken = 0;
+  let paid = false;
   try {
     const live = bizState.byId[biz.id]!;
     ensureBizFloat(ledger, biz.id, payout);
+    const available = balance(ledger, businessAccount);
+    if (available < payout) {
+      feedback(
+        player,
+        insufficientFundsMessage(
+          tradeDef(biz.trade).name,
+          payout,
+          available
+        ),
+        "error"
+      );
+      return;
+    }
+    taken = takeItems(player, def.item, qty);
+    if (taken !== qty) {
+      if (taken > 0) giveItem(player, def.item, taken);
+      feedback(player, Voice.error, "error");
+      return;
+    }
     paySaleCashFromAccount(
       ledger,
       player,
-      bizAccount(biz.id),
+      businessAccount,
       payout,
       currentTick(),
       "shop:freelance"
     );
+    paid = true;
     const room = Math.max(0, def.storageCap - live.storage);
     const stored = Math.min(taken, room);
     live.storage += stored;
@@ -287,7 +339,20 @@ async function sellFlow(
     const line = pickStorefrontFlavor(biz.trade, "sell");
     if (line) feedback(player, line, "info");
   } catch (e) {
+    if (taken > 0 && !paid) giveItem(player, def.item, taken);
     console.error(`[ew] shop sell failed: ${e}`);
-    feedback(player, Voice.error, "error");
+    if (e instanceof LedgerError) {
+      feedback(
+        player,
+        insufficientFundsMessage(
+          tradeDef(biz.trade).name,
+          payout,
+          balance(ledger, businessAccount)
+        ),
+        "error"
+      );
+    } else {
+      feedback(player, Voice.error, "error");
+    }
   }
 }

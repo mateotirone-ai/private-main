@@ -1,10 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { produceOnce, seedCpuBusinesses, runCpuProduction } from "../src/systems/businessMath";
+import {
+  businessDisplayName,
+  produceOnce,
+  seedCpuBusinesses,
+  runCpuProduction,
+} from "../src/systems/businessMath";
 import { tradeDef, allTradeIds, cpuProduceEveryMinutes } from "../src/content/trades";
 import { ownerPresenceMultiplier } from "../src/systems/employmentMath";
 import { matrix } from "../src/content/matrix";
 
 describe("CPU business output rates", () => {
+  it("renders public business labels without internal IDs", () => {
+    const business = {
+      ...seedCpuBusinesses()["cpu_stone_quarry"]!,
+      owner: "player-id",
+      ownerName: "Mateo",
+    };
+    expect(businessDisplayName(business)).toBe(
+      "Stone Quarry — owned by Mateo"
+    );
+    expect(businessDisplayName(business)).not.toContain("player-id");
+  });
+
   it("seeds one CPU business per Layer-1 trade", () => {
     const byId = seedCpuBusinesses();
     expect(Object.keys(byId).length).toBe(allTradeIds().length);

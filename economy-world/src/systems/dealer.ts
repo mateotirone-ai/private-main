@@ -15,7 +15,7 @@ import { menuHub, confirmTxn, progressPanel } from "../ui/patterns";
 import { quoteSale, unitMultiplier } from "./dealerMath";
 import { countItem, takeItems } from "./cash";
 import { addReserve, loadReserve, saveReserve } from "./reserve";
-import { loadDealerState, saveDealerState, rollDealerDay } from "./dealerState";
+import { saveDealerState, rollDealerDay, type DealerState } from "./dealerState";
 import { playerAccount } from "./bank";
 import { paySaleCashFromMint } from "./saleCash";
 
@@ -24,28 +24,48 @@ const GOOD_LABEL: Record<PreciousGood, string> = {
   diamond: "diamonds",
 };
 
-export async function openDealer(player: Player, ledger: LedgerState): Promise<void> {
+export async function openDealer(
+  player: Player,
+  ledger: LedgerState,
+  dState: DealerState
+): Promise<void> {
   await menuHub(player, {
     title: "Commodity Dealer",
     glyph: Glyph.coin,
     facts: ["Assay window open"],
     narrator: Voice.dealerWelcome,
     buttons: [
-      { label: "Sell gold", glyph: Glyph.up, onSelect: () => sellFlow(player, ledger, "gold") },
-      { label: "Sell diamonds", glyph: Glyph.up, onSelect: () => sellFlow(player, ledger, "diamond") },
-      { label: "Prices today", glyph: Glyph.clock, onSelect: () => pricesBoard(player) },
+      {
+        label: "Sell gold",
+        glyph: Glyph.up,
+        onSelect: () => sellFlow(player, ledger, dState, "gold"),
+      },
+      {
+        label: "Sell diamonds",
+        glyph: Glyph.up,
+        onSelect: () => sellFlow(player, ledger, dState, "diamond"),
+      },
+      {
+        label: "Prices today",
+        glyph: Glyph.clock,
+        onSelect: () => pricesBoard(player, dState),
+      },
     ],
   });
 }
 
-async function sellFlow(player: Player, ledger: LedgerState, good: PreciousGood): Promise<void> {
+async function sellFlow(
+  player: Player,
+  ledger: LedgerState,
+  dState: DealerState,
+  good: PreciousGood
+): Promise<void> {
   const typeId = PRECIOUS_ITEMS[good];
   const qty = countItem(player, typeId);
   if (qty <= 0) {
     feedback(player, Voice.dealerEmpty(good), "caution");
     return;
   }
-  const dState = loadDealerState();
   rollDealerDay(dState, currentTick());
   const quote = quoteSale(
     qty,
@@ -107,8 +127,7 @@ async function sellFlow(player: Player, ledger: LedgerState, good: PreciousGood)
   );
 }
 
-async function pricesBoard(player: Player): Promise<void> {
-  const dState = loadDealerState();
+async function pricesBoard(player: Player, dState: DealerState): Promise<void> {
   rollDealerDay(dState, currentTick());
   const reserve = loadReserve();
   const rows = (["gold", "diamond"] as PreciousGood[]).map((good) => {

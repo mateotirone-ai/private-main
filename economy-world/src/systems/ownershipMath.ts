@@ -15,20 +15,44 @@ export interface EvaluationInput {
   upgradeSpend: number;
 }
 
-export function evaluateBusiness(
+export interface EvaluationBreakdown {
+  tierBase: number;
+  inventoryValue: number;
+  revenueValue: number;
+  upgradeValue: number;
+  locationFactor: number;
+  total: number;
+}
+
+export function evaluationBreakdown(
   cfg: EvaluationConfig,
   input: EvaluationInput
-): number {
+): EvaluationBreakdown {
   const tierBase = cfg.tierBaseByTier[String(input.tier)] ?? 0;
   const inventoryValue =
     input.storageUnits * input.marketUnitPrice * cfg.inventoryUnitValueFactor;
   const revenueValue = input.recentRevenue * cfg.recentRevenueFactor;
   const upgradeValue = input.upgradeSpend * cfg.upgradeValueFactor;
   const locationFactor = cfg.locationFactorByTrade[input.trade] ?? 1;
-  return Math.max(
+  const total = Math.max(
     1,
     Math.round((tierBase + inventoryValue + revenueValue + upgradeValue) * locationFactor)
   );
+  return {
+    tierBase: Math.round(tierBase),
+    inventoryValue: Math.round(inventoryValue),
+    revenueValue: Math.round(revenueValue),
+    upgradeValue: Math.round(upgradeValue),
+    locationFactor,
+    total,
+  };
+}
+
+export function evaluateBusiness(
+  cfg: EvaluationConfig,
+  input: EvaluationInput
+): number {
+  return evaluationBreakdown(cfg, input).total;
 }
 
 export interface AuctionConfig {
@@ -39,6 +63,8 @@ export interface AuctionConfig {
   luckBoostChance: number;
   luckBoostMinPct: number;
   luckBoostMaxPct: number;
+  maxRounds: number;
+  minRaisePct: number;
 }
 
 export interface AuctionBid {
@@ -46,56 +72,127 @@ export interface AuctionBid {
   amount: number;
 }
 
-export interface AuctionResolution {
+export interface OpenAuctionState {
+  evaluation: number;
+  maxRounds: number;
+  round: number;
+  standing: AuctionBid;
   bids: AuctionBid[];
-  winner: AuctionBid;
+  cpuMax: number;
+  bankLateMax: number;
+  complete: boolean;
 }
 
 function randomBetween(min: number, max: number, rng: () => number): number {
   return min + (max - min) * rng();
 }
 
-function maybeLuckBoost(
-  amount: number,
-  cfg: AuctionConfig,
+function evaluationBid(
+  evaluation: number,
+  minPct: number,
+  maxPct: number,
   rng: () => number
 ): number {
-  if (rng() >= cfg.luckBoostChance) return amount;
-  const boost = randomBetween(cfg.luckBoostMinPct, cfg.luckBoostMaxPct, rng);
-  return Math.round(amount * (1 + boost));
+  return Math.max(
+    1,
+    Math.round(evaluation * randomBetween(minPct, maxPct, rng))
+  );
 }
 
-function orderRank(bidder: AuctionBid["bidder"]): number {
-  if (bidder === "player") return 3;
-  if (bidder === "bank") return 2;
-  return 1;
+export function minimumRaiseAmount(
+  state: Pick<OpenAuctionState, "evaluation" | "standing">,
+  cfg: Pick<AuctionConfig, "minRaisePct">
+): number {
+  const increment = Math.max(1, Math.round(state.evaluation * cfg.minRaisePct));
+  return state.standing.amount + increment;
 }
 
-export function resolveSealedAuction(
+export function startOpenAuction(
   cfg: AuctionConfig,
   evaluation: number,
-  playerMaxBid: number,
   rng: () => number = Math.random
-): AuctionResolution {
-  if (playerMaxBid < 1) throw new Error("player bid must be positive");
-  const bank = maybeLuckBoost(
-    Math.round(evaluation * randomBetween(cfg.bankBidMinPct, cfg.bankBidMaxPct, rng)),
-    cfg,
+): OpenAuctionState {
+  if (!Number.isInteger(cfg.maxRounds) || cfg.maxRounds < 1) {
+    throw new Error("open auction needs at least one round");
+  }
+  const opening = evaluationBid(
+    evaluation,
+    cfg.bankBidMinPct,
+    cfg.bankBidMaxPct,
     rng
   );
-  const cpu = maybeLuckBoost(
-    Math.round(evaluation * randomBetween(cfg.cpuBidMinPct, cfg.cpuBidMaxPct, rng)),
-    cfg,
+  const cpuMax = evaluationBid(
+    evaluation,
+    cfg.cpuBidMinPct,
+    cfg.cpuBidMaxPct,
     rng
   );
-  const bids: AuctionBid[] = [
-    { bidder: "player", amount: playerMaxBid },
-    { bidder: "bank", amount: bank },
-    { bidder: "cpu", amount: cpu },
+  const luckBoost =
+    rng() < cfg.luckBoostChance
+      ? randomBetween(cfg.luckBoostMinPct, cfg.luckBoostMaxPct, rng)
+      : 0;
+  const bankLateMax =
+    luckBoost > 0
+      ? Math.max(
+          opening,
+          Math.round(evaluation * cfg.bankBidMaxPct * (1 + luckBoost))
+        )
+      : opening;
+  const standing: AuctionBid = { bidder: "bank", amount: opening };
+  return {
+    evaluation,
+    maxRounds: cfg.maxRounds,
+    round: 0,
+    standing,
+    bids: [standing],
+    cpuMax,
+    bankLateMax,
+    complete: false,
+  };
+}
+
+export function placePlayerRaise(
+  state: OpenAuctionState,
+  cfg: AuctionConfig,
+  amount: number
+): OpenAuctionState {
+  if (state.complete) throw new Error("auction is complete");
+  if (state.round >= state.maxRounds) throw new Error("auction round cap reached");
+  const minimum = minimumRaiseAmount(state, cfg);
+  if (!Number.isInteger(amount) || amount < minimum) {
+    throw new Error(`player bid must be at least ${minimum}`);
+  }
+  const bid: AuctionBid = { bidder: "player", amount };
+  return {
+    ...state,
+    round: state.round + 1,
+    standing: bid,
+    bids: [...state.bids, bid],
+  };
+}
+
+export function counterOpenAuction(
+  state: OpenAuctionState,
+  cfg: AuctionConfig
+): OpenAuctionState {
+  if (state.complete || state.standing.bidder !== "player") return state;
+  const minimum = minimumRaiseAmount(state, cfg);
+  const lateRound = state.round >= Math.ceil(state.maxRounds / 2);
+  const candidates: Array<{ bidder: "bank" | "cpu"; cap: number }> = [
+    { bidder: "cpu", cap: state.cpuMax },
   ];
-  const winner = [...bids].sort((a, b) => {
-    if (b.amount !== a.amount) return b.amount - a.amount;
-    return orderRank(b.bidder) - orderRank(a.bidder);
-  })[0]!;
-  return { bids, winner };
+  if (lateRound && state.bankLateMax > state.bids[0]!.amount) {
+    candidates.push({ bidder: "bank", cap: state.bankLateMax });
+  }
+  const counter = candidates
+    .filter((candidate) => candidate.cap >= minimum)
+    .sort((a, b) => b.cap - a.cap)[0];
+  if (!counter) return { ...state, complete: true };
+  const bid: AuctionBid = { bidder: counter.bidder, amount: minimum };
+  return {
+    ...state,
+    standing: bid,
+    bids: [...state.bids, bid],
+    complete: state.round >= state.maxRounds,
+  };
 }

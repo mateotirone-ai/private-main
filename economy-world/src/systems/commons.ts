@@ -11,7 +11,7 @@ import { bareAmount, merids } from "../ui/theme";
 import { Voice } from "../ui/voice";
 import { feedback } from "../ui/feedback";
 import { menuHub, confirmTxn } from "../ui/patterns";
-import { countItem, takeItems } from "./cash";
+import { countItem, giveItem, takeItems } from "./cash";
 import {
   type BusinessesState,
   bizAccount,
@@ -97,13 +97,22 @@ async function sellAtZone(
     narrator: Voice.commonsWelcome,
   });
   if (!ok) return;
-  const taken = takeItems(player, def.item, qty);
-  if (taken !== qty) {
-    feedback(player, Voice.error, "error");
-    return;
-  }
+  let taken = 0;
+  let paid = false;
   try {
+    taken = takeItems(player, def.item, qty);
+    if (taken !== qty) {
+      if (taken > 0) giveItem(player, def.item, taken);
+      feedback(player, Voice.error, "error");
+      return;
+    }
     ensureBizFloat(ledger, bizId, payout);
+    const available = balance(ledger, bizAccount(bizId));
+    if (available < payout) {
+      if (taken > 0) giveItem(player, def.item, taken);
+      feedback(player, "Buyer account is temporarily short on funds.", "error");
+      return;
+    }
     paySaleCashFromAccount(
       ledger,
       player,
@@ -112,6 +121,7 @@ async function sellAtZone(
       currentTick(),
       "commons:sell"
     );
+    paid = true;
     const room = Math.max(0, def.storageCap - biz.storage);
     const stored = Math.min(taken, room);
     biz.storage += stored;
@@ -120,6 +130,7 @@ async function sellAtZone(
     savePrices(prices);
     feedback(player, Voice.commonsSellOk(`${taken} ${displayGood(good)}`, merids(payout)), "gain");
   } catch (e) {
+    if (taken > 0 && !paid) giveItem(player, def.item, taken);
     console.error(`[ew] commons sell failed: ${e}`);
     feedback(player, Voice.error, "error");
   }

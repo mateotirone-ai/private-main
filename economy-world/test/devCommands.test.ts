@@ -22,10 +22,12 @@ describe("developer command registry", () => {
     }
     expect(help).toContain("Phase A");
     expect(help).toContain("Phase E");
+    expect(help).toContain("Phase G");
   });
 
   it("rejects missing arguments and unknown commands", () => {
     expect(parseDevCommand("shop")).toBeUndefined();
     expect(parseDevCommand("not-a-command")).toBeUndefined();
+    expect(parseDevCommand("seedtown starter")?.argument).toBe("starter");
   });
 });

@@ -37,6 +37,7 @@ import { adjustStock, savePrices, type PricesState } from "./pricing";
 import { giveItem } from "./cash";
 import { companyToolMarker } from "./companyTools";
 import { companyToolCanUse } from "./companyToolPolicy";
+import { noteOnboardingOutput } from "./onboarding";
 
 export interface WorkZone {
   id: string;
@@ -52,6 +53,7 @@ export interface WorldResourceNode extends ResourceNode {
   zoneId: string;
   dimensionId: string;
   location: Vector3;
+  pendingHarvest?: boolean;
 }
 
 export interface ExtractionState {
@@ -69,7 +71,11 @@ export function emptyExtraction(): ExtractionState {
 export function loadExtraction(): ExtractionState {
   const state = loadBlob<ExtractionState>(KEY);
   // Phase D live-test ruling invalidates pre-stamp zones/nodes.
-  return state?.schema === 2 ? state : emptyExtraction();
+  if (state?.schema !== 2) return emptyExtraction();
+  for (const node of Object.values(state.nodes)) {
+    node.pendingHarvest ??= false;
+  }
+  return state;
 }
 
 export function saveExtraction(state: ExtractionState): void {
@@ -124,6 +130,7 @@ export function registerWorkZone(
       readyBlock: def.readyBlock,
       stage: "ready",
       harvestedTick: 0,
+      pendingHarvest: false,
       dimensionId,
       location,
     };
@@ -214,11 +221,19 @@ export function startExtractionSystem(
     }
     if (access === "inert") return;
     cancel();
-    if (node.stage !== "ready" || blockTypeId !== node.readyBlock) return;
+    if (
+      node.stage !== "ready" ||
+      blockTypeId !== node.readyBlock ||
+      node.pendingHarvest
+    ) {
+      return;
+    }
+    node.pendingHarvest = true;
 
     const def = tradeDef(node.trade);
     const employed = !zone.public && session?.businessId === business.id;
     if (employed && business.storage >= def.storageCap) {
+      node.pendingHarvest = false;
       system.run(() =>
         speakAs(player, def.name, "Business storage is full. Come back after stock moves.")
       );
@@ -226,6 +241,10 @@ export function startExtractionSystem(
     }
 
     system.run(() => {
+      if (node.stage !== "ready") {
+        node.pendingHarvest = false;
+        return;
+      }
       let progress: ReturnType<typeof recordEmployeeOutput> = undefined;
       if (employed && session) {
         business.storage += 1;
@@ -238,12 +257,14 @@ export function startExtractionSystem(
 
       node.stage = "depleted";
       node.harvestedTick = currentTick();
+      node.pendingHarvest = false;
       setStageBlock(dimension, node.location, node.trade, node.stage);
       saveExtraction(extraction);
       saveBusinesses(businesses);
       saveEmployment(employment);
       savePrices(prices);
       if (employed && session && progress) {
+        noteOnboardingOutput(player);
         setActionbarContext(
           player,
           "employment",

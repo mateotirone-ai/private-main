@@ -1,7 +1,11 @@
 import { world, type ScoreboardObjective } from "@minecraft/server";
 import { currentTick, every } from "../core/scheduler";
 import { matrix } from "../content/matrix";
-import { configureHudProviders, refreshActionbar } from "../ui/toast";
+import {
+  configureHudTickProvider,
+  refreshActionbar,
+  updateCashChip,
+} from "../ui/toast";
 import { countCarriedCash } from "./cash";
 
 const CASH_OBJECTIVE = "ew_cash";
@@ -17,15 +21,14 @@ function objective(id: string, displayName: string): ScoreboardObjective {
 export function startHudJob(): void {
   const cash = objective(CASH_OBJECTIVE, "Cash");
   const skill = objective(SKILL_OBJECTIVE, "Skill License");
-  configureHudProviders(
-    (player) => countCarriedCash(player).total,
-    () => currentTick()
-  );
+  configureHudTickProvider(() => currentTick());
   every("hud:refresh", matrix.ui.hud.refreshTicks, (tick) => {
     for (const player of world.getAllPlayers()) {
       const identity = player.scoreboardIdentity;
       if (!identity) continue;
-      cash.setScore(identity, countCarriedCash(player).total);
+      const carriedCash = countCarriedCash(player).total;
+      cash.setScore(identity, carriedCash);
+      updateCashChip(player, carriedCash);
       const skillLevel = Math.max(0, skill.getScore(identity) ?? 0);
       if (player.level !== skillLevel) {
         player.resetLevel();

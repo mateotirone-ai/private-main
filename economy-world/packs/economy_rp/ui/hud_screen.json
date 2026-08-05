@@ -5,16 +5,16 @@
       {
         "array_name": "controls",
         "operation": "insert_front",
-        "value": [
-          {
-            "ew_wallet_chip@hud.ew_wallet_chip": {}
-          }
-        ]
+        "value": {
+          "ew_wallet_chip@hud.ew_wallet_chip": {}
+        }
       }
     ]
   },
   "ew_wallet_chip": {
-    "type": "panel",
+    "type": "label",
+    "text": "#text",
+    "$cash_update_prefix": "ewcash:",
     "anchor_from": "top_right",
     "anchor_to": "top_right",
     "offset": [
@@ -25,24 +25,49 @@
       210,
       18
     ],
+    "text_alignment": "right",
+    "localize": false,
+    "color": [
+      0.91,
+      0.66,
+      0.11
+    ],
     "controls": [
       {
-        "cash_text": {
-          "type": "label",
-          "anchor_from": "top_right",
-          "anchor_to": "top_right",
-          "color": [
-            0.91,
-            0.66,
-            0.11
+        "cash_data": {
+          "type": "panel",
+          "size": [
+            0,
+            0
           ],
-          "text": "#hud_actionbar_text_string",
+          "property_bag": {
+            "#preserved_cash_text": "ewcash:Cash 0"
+          },
           "bindings": [
             {
-              "binding_name": "#hud_actionbar_text_string"
+              "binding_name": "#hud_title_text_string",
+              "binding_type": "global"
+            },
+            {
+              "binding_name": "#hud_title_text_string",
+              "binding_name_override": "#preserved_cash_text",
+              "binding_condition": "visibility_changed"
+            },
+            {
+              "binding_type": "view",
+              "source_property_name": "(not (#hud_title_text_string = #preserved_cash_text) and not ((#hud_title_text_string - $cash_update_prefix) = #hud_title_text_string))",
+              "target_property_name": "#visible"
             }
           ]
         }
+      }
+    ],
+    "bindings": [
+      {
+        "binding_type": "view",
+        "source_control_name": "cash_data",
+        "source_property_name": "(#preserved_cash_text - $cash_update_prefix)",
+        "target_property_name": "#text"
       }
     ]
   }
