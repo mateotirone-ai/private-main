@@ -1,5 +1,10 @@
 # Economy World — NOTES
 
+## Binding rules (forms & NPC hosts)
+
+1. **`safeShow` is mandatory.** Every form open goes through `src/ui/safeShow.ts`. Direct `form.show(player)` is banned — Bedrock cancels with `UserBusy` while the player is mid-interact or in chat; `safeShow` retries every 5 ticks for up to ~100 ticks (~5s). All pattern builders (`menuHub`, `confirmTxn`, `catalog`, `managePanel`, `progressPanel`) already route through it; future screens must too.
+2. **Villagers/traders cannot host shops.** Entities with vanilla interact UIs win the interaction; our form never appears (silent, no error). Shop/NPC hosts must be the Bedrock **NPC entity** or custom entities. Villager *look* comes later via skinning — not via `minecraft:villager` hosts.
+
 ## Phase C (current)
 
 Built against `docs/layer1-technical-spec.md` §4.5–4.6 / Phase C, `docs/ui-design-system.md`, and binding `docs/ui-amendment-1.md`. Stopped at Phase C (no Phase D).

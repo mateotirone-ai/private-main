@@ -1,5 +1,5 @@
 // src/main.ts
-import { world as world3, system as system2 } from "@minecraft/server";
+import { world as world3, system as system3 } from "@minecraft/server";
 
 // src/core/ledger.ts
 var JOURNAL_CAP = 512;
@@ -325,6 +325,51 @@ import {
   MessageFormData,
   ModalFormData
 } from "@minecraft/server-ui";
+
+// src/ui/safeShow.ts
+import { system as system2 } from "@minecraft/server";
+
+// src/ui/safeShowPolicy.ts
+var USER_BUSY = "UserBusy";
+var SAFE_SHOW_RETRY_TICKS = 5;
+var SAFE_SHOW_MAX_WAIT_TICKS = 100;
+function isUserBusy(canceled, reason) {
+  return canceled && reason === USER_BUSY;
+}
+function userBusyRetryDelay(waitedTicks, retryTicks = SAFE_SHOW_RETRY_TICKS, maxWaitTicks = SAFE_SHOW_MAX_WAIT_TICKS) {
+  if (waitedTicks >= maxWaitTicks) return null;
+  return retryTicks;
+}
+async function safeShowLoop(showOnce, sleep, opts = {}) {
+  const retryTicks = opts.retryTicks ?? SAFE_SHOW_RETRY_TICKS;
+  const maxWaitTicks = opts.maxWaitTicks ?? SAFE_SHOW_MAX_WAIT_TICKS;
+  let waited = 0;
+  while (true) {
+    const res = await showOnce();
+    if (!isUserBusy(res.canceled, res.cancelationReason)) return res;
+    const delay = userBusyRetryDelay(waited, retryTicks, maxWaitTicks);
+    if (delay === null) {
+      opts.onGiveUp?.();
+      return res;
+    }
+    await sleep(delay);
+    waited += delay;
+  }
+}
+
+// src/ui/safeShow.ts
+function sleepTicks(ticks) {
+  return new Promise((resolve) => {
+    system2.runTimeout(() => resolve(), ticks);
+  });
+}
+async function safeShow(player, form) {
+  return safeShowLoop(() => form.show(player), sleepTicks, {
+    onGiveUp: () => console.warn(`[ew] safeShow gave up after UserBusy (~${SAFE_SHOW_MAX_WAIT_TICKS} ticks)`)
+  });
+}
+
+// src/ui/patterns.ts
 async function menuHub(player, opts) {
   const page = opts.page ?? 0;
   const totalPages = Math.max(1, Math.ceil(opts.buttons.length / PAGE_SIZE));
@@ -340,7 +385,7 @@ async function menuHub(player, opts) {
   if (page > 0) form.button(`${Glyph.up} Previous`);
   if (page + 1 < totalPages) form.button(`${Glyph.down} Next`);
   form.button(`${Glyph.cross} Cancel`);
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || res.selection === void 0) {
     toast(player, Voice.cancelled, "caution");
     return;
@@ -380,7 +425,7 @@ async function confirmTxn(player, opts) {
   ];
   const body = bodyWithNarrator(facts, opts.narrator);
   const form = new MessageFormData().title(titleWithGlyph(opts.glyph, opts.title)).body(body).button1(opts.confirmLabel ?? `${Glyph.check} Confirm`).button2(`${Glyph.cross} Cancel`);
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || res.selection === void 0 || res.selection === 1) {
     toast(player, Voice.cancelled, "caution");
     return false;
@@ -407,7 +452,7 @@ async function catalog(player, opts) {
   if (page > 0) form.button(`${Glyph.up} Previous`);
   if (page + 1 < totalPages) form.button(`${Glyph.down} Next`);
   form.button(`${Glyph.cross} Back`);
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || res.selection === void 0) return;
   let idx = res.selection;
   if (idx < slice.length) {
@@ -424,7 +469,7 @@ async function catalog(player, opts) {
           e.detailNarrator
         )
       ).button1(`${Glyph.check} Continue`).button2(`${Glyph.cross} Back`);
-      const d = await detail.show(player);
+      const d = await safeShow(player, detail);
       if (d.canceled || d.selection !== 0) {
         await catalog(player, opts);
         return;
@@ -465,7 +510,7 @@ async function managePanel(player, opts) {
     }
   }
   form.submitButton(opts.saveLabel ?? `${Glyph.check} Continue`);
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || !res.formValues) {
     toast(player, Voice.cancelled, "caution");
     return void 0;
@@ -482,7 +527,7 @@ async function progressPanel(player, opts) {
   });
   const body = bodyWithNarrator([...opts.facts ?? [], ...rowLines], opts.narrator);
   const form = new ActionFormData().title(titleWithGlyph(opts.glyph, opts.title)).body(body).button(opts.doneLabel ?? `${Glyph.check} Done`);
-  await form.show(player);
+  await safeShow(player, form);
 }
 
 // src/systems/bankMath.ts
@@ -1753,7 +1798,7 @@ function boot() {
       pricesState = s;
     }
   );
-  system2.afterEvents.scriptEventReceive.subscribe((ev) => {
+  system3.afterEvents.scriptEventReceive.subscribe((ev) => {
     if (ev.id === "ew:dev") {
       const player = asPlayer(ev.sourceEntity);
       if (ev.message === "grant" && player) {
@@ -1829,4 +1874,4 @@ function boot() {
   const tradeNames = listCpuBusinesses(bizState).map((b) => tradeDef(b.trade).name).join(", ");
   console.log(`[ew] Economy World Phase C booted. CPU shops: ${tradeNames}`);
 }
-system2.run(boot);
+system3.run(boot);

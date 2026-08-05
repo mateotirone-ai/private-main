@@ -22,6 +22,7 @@ import {
 } from "./theme";
 import { Voice } from "./voice";
 import { toast } from "./toast";
+import { safeShow } from "./safeShow";
 
 export interface HubButton {
   label: string;
@@ -60,7 +61,7 @@ export async function menuHub(
   if (page + 1 < totalPages) form.button(`${Glyph.down} Next`);
   form.button(`${Glyph.cross} Cancel`);
 
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || res.selection === undefined) {
     toast(player, Voice.cancelled, "caution");
     return;
@@ -128,7 +129,7 @@ export async function confirmTxn(
     .button1(opts.confirmLabel ?? `${Glyph.check} Confirm`)
     .button2(`${Glyph.cross} Cancel`);
 
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || res.selection === undefined || res.selection === 1) {
     toast(player, Voice.cancelled, "caution");
     return false;
@@ -181,7 +182,7 @@ export async function catalog(
   if (page + 1 < totalPages) form.button(`${Glyph.down} Next`);
   form.button(`${Glyph.cross} Back`);
 
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || res.selection === undefined) return;
 
   let idx = res.selection;
@@ -203,7 +204,7 @@ export async function catalog(
         )
         .button1(`${Glyph.check} Continue`)
         .button2(`${Glyph.cross} Back`);
-      const d = await detail.show(player);
+      const d = await safeShow(player, detail);
       if (d.canceled || d.selection !== 0) {
         await catalog(player, opts);
         return;
@@ -272,7 +273,7 @@ export async function managePanel(
   }
   form.submitButton(opts.saveLabel ?? `${Glyph.check} Continue`);
 
-  const res = await form.show(player);
+  const res = await safeShow(player, form);
   if (res.canceled || !res.formValues) {
     toast(player, Voice.cancelled, "caution");
     return undefined;
@@ -315,5 +316,5 @@ export async function progressPanel(
     .title(titleWithGlyph(opts.glyph, opts.title))
     .body(body)
     .button(opts.doneLabel ?? `${Glyph.check} Done`);
-  await form.show(player);
+  await safeShow(player, form);
 }
