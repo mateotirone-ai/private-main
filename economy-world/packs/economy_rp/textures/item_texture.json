@@ -5,6 +5,7 @@
     "ew_cash_1": { "textures": "textures/items/cash_1" },
     "ew_cash_10": { "textures": "textures/items/cash_10" },
     "ew_cash_100": { "textures": "textures/items/cash_100" },
-    "ew_cash_1000": { "textures": "textures/items/cash_1000" }
+    "ew_cash_1000": { "textures": "textures/items/cash_1000" },
+    "ew_wallet": { "textures": "textures/items/wallet" }
   }
 }

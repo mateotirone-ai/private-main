@@ -1,62 +1,73 @@
-# Phase B — NOTES
+# Economy World — NOTES
 
-Built against `docs/ui-design-system.md`, `docs/layer1-technical-spec.md` §4.3–4.4, and `docs/economy-world-master-design.md`. Stopped at Phase B (no Phase C).
+## Phase C (current)
 
-## What shipped
+Built against `docs/layer1-technical-spec.md` §4.5–4.6 / Phase C, `docs/ui-design-system.md`, and binding `docs/ui-amendment-1.md`. Stopped at Phase C (no Phase D).
 
-### UI kit (`src/ui/`)
-- `theme.ts` — Emerald Edition hex tokens + § ink + glyph PUA constants + `money()` / `progressBar()` / `PAGE_SIZE=8`
-- `voice.ts` — narrator-voice string table (Meridian HR tone)
-- `toast.ts` — toast + actionbar helpers
-- `patterns.ts` — P1 `menuHub`, P2 `confirmTxn` (balance-after), P3 `catalog`, P4 `managePanel`, P7 `progressPanel` (P5/P6 deferred; not needed for L1 bank/dealer)
+### Hotfixes
+- `tools/deploy.mjs` — prefers Xbox-app path `AppData/Roaming/Minecraft Bedrock/Users/Shared/games/com.mojang`, falls back to UWP Store path.
+- `src/main.ts` — `system.run(boot)`; all `world.afterEvents` + `system.afterEvents` subscriptions moved inside `boot()` (no module-top-level world use).
 
-### Bank (`src/systems/bank.ts` + `bankMath.ts` + `cash.ts`)
-- Hub → Deposit / Withdraw / Transfer / Statements (no loans)
-- Deposit: physical `ew:cash_*` → `Ledger.cashIn`
-- Withdraw: `Ledger.cashOut` then spawn cash — **only** spawn site for cash items
-- Transfer: flat fee from `data/matrix.json` → `Ledger.sink(..., "sink:fee")` then `Ledger.transfer`
-- Statements: P7 over recent journal lines for the player account
-- Cash items: `ew:cash_1/10/100/1000` (BP items + RP stub textures)
+### UI amendment A1.1–A1.4 retrofit (every Phase B screen)
 
-### Commodity Dealer (`src/systems/dealer.ts` + `dealerMath.ts` + `dealerState.ts` + `reserve.ts`)
-- Hub → Sell gold / Sell diamonds / Prices today
-- Sale: remove vanilla gold_ingot/diamond → `Ledger.mint(..., "mint:dealer")` → reserve += units → daily soldToday++
-- Daily-capacity linear softening (see ⚑ below)
-- Prices board (P7) shows softened unit price + sold/capacity bars + reserve counts
+| Screen / surface | Fixes |
+|---|---|
+| **Bank hub** | Facts first (`Balance: N`); narrator quoted last; bare amounts |
+| **Deposit (P2)** | One-fact lines; `merids` on payout; bare balance lines; narrator last |
+| **Withdraw (P2)** | Same A1.1–A1.4 pattern |
+| **Transfer (P2)** | Recipient / send / fee as separate facts; no inline fee math in one line |
+| **Statements (P7)** | Balance fact first; narrator last; comma amounts in entries |
+| **Dealer hub** | Data fact + narrator last |
+| **Sell gold (P2)** | `Selling:` / `Price:` / `Payout:` stacked; no `80 × ~69 (base 100)` |
+| **Sell diamonds (P2)** | Same as sell gold |
+| **Prices today (P7)** | Reserve facts first; unit notes; narrator last |
+| **Toasts** (deposit/withdraw/transfer/dealer/stipend/cancel/error) | `money()` → `N merids` with thousands separators; no coin/Ⓐ glyph |
+| **Theme `money()`** | A1.3 commas + A1.4 plain text (amendment overrides UI law §7 glyph rule) |
 
-### Stipend stub
-- `/scriptevent ew:dev stipend` — one-time `mint:stipend` from `matrix.stipend`, tracked in `ew:players`
+Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take `facts` + `narrator` and use `bodyWithNarrator`.
 
-### Entry points
-- Tag NPCs `ew:npc_bank` / `ew:npc_dealer` (interact opens hub)
-- `/scriptevent ew:npc bank|dealer` and `/scriptevent ew:dev bank|dealer|stipend|grant|audit`
+### Phase C systems
+- **Pricing engine** (`pricingMath.ts` + `pricing.ts`) — §4.5 tick; mint-tier gold/diamond pinned to base
+- **CPU trades** (`data/trades.json` + `businesses.ts`) — 10 trades, produce-to-cap tick, system-backed accounts
+- **Storefronts** (`storefront.ts`) — P3 buy / P2 freelancer sell; tag `ew:shop_<trade>` or `/scriptevent ew:dev shop <trade>`
+- **Commons** (`commons.ts`) — woodlot / quarry pit / forage sell-to-matching-business; tag `ew:npc_commons`
+- **Wallet** (`ew:wallet`) — packs/unpacks notes; withdraw prefers wallet; deposit drains wallet + loose notes
 
 ### Tests
-- `test/bank.test.ts` — fee planning, affordance, ledger sink+transfer, cash breakdown
-- `test/dealer.test.ts` — capacity mult, softFloor clamp, progressive multi-unit quote, mint audit
-- Existing `test/ledger.test.ts` unchanged
+- `test/pricing.test.ts` — pressure, band clamps, mint-tier flags, freelance payout
+- `test/businesses.test.ts` — 10 CPU seeds, producePerTick, storageCap, player-owned skip
+- Prior ledger/bank/dealer tests still green
 
-## ⚑ Placeholders added
+### Wallet — open questions (not invented)
+- Max wallet capacity?
+- Does wallet drop on death with its balance (vs bank-safe)?
+- Auto-grant wallet at stipend/tutorial exit, or craft/buy only?
+- Multi-wallet: merge rules if two wallets exist?
+- Should unpack offer amount slider (currently unpack-all only in UI)?
 
-Numbers not found as locked values in the docs were added to `data/matrix.json` with ⚑ comments — never hardcoded in TS beyond reading data/.
+---
+
+## ⚑ Placeholders (Phase B + C)
 
 | Key | Value | Why ⚑ |
 |---|---|---|
-| `bank.transferFee` | `5` | Master doc §13 lists transfer fee as playtest tuning (“tiny flat fee”); no numeric lock. |
-| `dealer.dailyCapacity.gold` | `64` | Master doc locks “price softens with volume” but gives no capacity number. |
-| `dealer.dailyCapacity.diamond` | `16` | Same — diamond scarcer window guessed as ¼ of gold. |
-| `dealer.softFloor` | `0.5` | Soften floor (never below 50% of base) not specified; linear curve chosen for Phase B. |
+| `bank.transferFee` | `5` | Master §13 tuning |
+| `dealer.dailyCapacity.gold` | `64` | Soften volume not quantified |
+| `dealer.dailyCapacity.diamond` | `16` | Same |
+| `dealer.softFloor` | `0.5` | Soften floor not specified |
+| `trades.*.producePerTick` / `storageCap` | see `data/trades.json` | Master §13 “CPU restock rates” |
+| `cpuProduceEveryMinutes` | `10` | Aligned to price tick; not locked |
+| `fishery` trade + buyout `2200` / t2 | matrix + trades.json | Layer1 says 10 trades; Phase A matrix had 9 |
+| `prices.goods.fish` | base `4`, etc. | Needed for fishery |
 
-### Formula chosen (not in docs — documented here, params ⚑)
+### Dealer soften formula (Phase B, unchanged)
 ```
 mult(soldToday) = 1 - min(1, soldToday / capacity) * (1 - softFloor)
 payout = Σ floor(base * mult(soldToday + i)) for i in 0..qty-1
 ```
 
-### Not ⚑ (found in docs / prior data)
-- Cash denoms `1/10/100/1000` — layer1 §3
-- Gold base `100`, diamond base `400` — existing `data/prices.json`
-- Stipend `250` — existing matrix / layer1 §6 table
+---
 
-## Glyph font
-PUA codepoints (`U+E000`…) are reserved in `theme.ts`. RP `font/` atlas not authored yet — glyphs will render as missing-char until the Emerald glyph sheet ships. § color codes still theme the forms.
+## Phase B archive (kept for history)
+
+Ledger-only bank/dealer, cash denoms 1/10/100/1000, stipend stub, Emerald UI kit P1–P4/P7.

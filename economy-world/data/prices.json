@@ -1,6 +1,7 @@
 {
   "_comment": "Pricing engine v1 config. base prices are relative-value guesses; ALL tuning numbers.",
   "tickMinutes": 10,
+  "mintTier": ["gold", "diamond"],
   "goods": {
     "stone":   { "base": 2,   "band": [0.4, 2.5], "driftRate": 0.03, "target": 400 },
     "log":     { "base": 3,   "band": [0.4, 2.5], "driftRate": 0.03, "target": 300 },
@@ -9,7 +10,8 @@
     "bread":   { "base": 5,   "band": [0.4, 2.5], "driftRate": 0.04, "target": 150 },
     "iron_ore":{ "base": 8,   "band": [0.4, 2.5], "driftRate": 0.03, "target": 150 },
     "iron":    { "base": 15,  "band": [0.4, 2.5], "driftRate": 0.03, "target": 100 },
-    "gold":    { "base": 100, "band": [0.8, 1.3], "driftRate": 0.01, "target": 50, "_": "mint tier: tight band, slow drift" },
-    "diamond": { "base": 400, "band": [0.8, 1.3], "driftRate": 0.01, "target": 12 }
+    "fish":    { "base": 4,   "band": [0.4, 2.5], "driftRate": 0.04, "target": 200, "_comment": "⚑ fishery good — added with 10th trade" },
+    "gold":    { "base": 100, "band": [0.8, 1.3], "driftRate": 0.01, "target": 50, "_": "mint tier: L1 constant (no drift tick)" },
+    "diamond": { "base": 400, "band": [0.8, 1.3], "driftRate": 0.01, "target": 12, "_": "mint tier: L1 constant (no drift tick)" }
   }
 }

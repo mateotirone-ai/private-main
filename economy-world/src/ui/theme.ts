@@ -1,7 +1,7 @@
 /**
- * Emerald Edition design tokens — ui-design-system.md §2.
- * Hex for JSON-UI / handbook; § codes for form/actionbar text.
- * Glyphs are PUA codepoints; RP font/ wiring lands when the glyph atlas ships.
+ * Emerald Edition design tokens — ui-design-system.md §2 + ui-amendment-1.md.
+ * Amendment wins on money rendering (A1.3–A1.4): no controller-glyph coin mark;
+ * thousands separators; "merids" in sentences / bare numbers on balance lines.
  */
 
 export const Hex = {
@@ -23,19 +23,18 @@ export const Ink = {
   paper: "§f",
   signalRed: "§c",
   signalBlue: "§9",
-  /** status: green = open/positive/gain */
   gain: "§a",
-  /** status: yellow = toll/caution/pending */
   caution: "§e",
-  /** status: orange = closed/warning */
   warning: "§6",
-  /** status: red = hostile/danger/loss */
   loss: "§c",
   reset: "§r",
   bold: "§l",
 } as const;
 
-/** Custom font glyphs (ui-design-system.md §2). Wired when RP font ships. */
+/**
+ * Icon placeholders (A1.5) — accepted temporarily on EXISTING Phase B buttons only.
+ * Do not add to new Phase C+ screen elements. PRE-LAUNCH BLOCKER until art pass.
+ */
 export const Glyph = {
   coin: "\uE000",
   bank: "\uE001",
@@ -52,7 +51,6 @@ export const Glyph = {
   down: "\uE00C",
   clock: "\uE00D",
   hammer: "\uE00E",
-  /** filled / empty blocks for P7 progress bars */
   barFull: "\uE00F",
   barEmpty: "\uE010",
 } as const;
@@ -60,17 +58,50 @@ export const Glyph = {
 /** Console rule: ≤8 options per page. */
 export const PAGE_SIZE = 8;
 
-/** Money is always glyphed (UI law §7). */
-export function money(amount: number): string {
-  return `${Ink.gold}${Glyph.coin}${Ink.reset} ${amount}`;
+/** A1.3 — every merid amount ≥ 1,000 gets comma separators. */
+export function formatAmount(amount: number): string {
+  const n = Math.trunc(amount);
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n).toString();
+  const withCommas = abs.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return sign + withCommas;
 }
 
-export function titleWithGlyph(glyph: string, title: string): string {
-  return `${glyph} ${Ink.emerald}${Ink.bold}${title}${Ink.reset}`;
+/**
+ * Sentence / toast money (A1.4): `5,594 merids`.
+ * Never use controller glyphs as currency.
+ */
+export function merids(amount: number): string {
+  return `${formatAmount(amount)} merids`;
+}
+
+/** Alias used across call sites for sentence money. */
+export function money(amount: number): string {
+  return merids(amount);
+}
+
+/** Balance / payout bare number when the label already implies merids (A1.4). */
+export function bareAmount(amount: number): string {
+  return formatAmount(amount);
+}
+
+export function titleWithGlyph(glyph: string | undefined, title: string): string {
+  // A1.5: existing screens may still pass a placeholder glyph; new screens omit it.
+  if (glyph) return `${glyph} ${Ink.emerald}${Ink.bold}${title}${Ink.reset}`;
+  return `${Ink.emerald}${Ink.bold}${title}${Ink.reset}`;
 }
 
 export function progressBar(filled: number, total: number, width = 10): string {
   const t = Math.max(1, total);
   const n = Math.max(0, Math.min(width, Math.round((filled / t) * width)));
   return Glyph.barFull.repeat(n) + Glyph.barEmpty.repeat(width - n);
+}
+
+/**
+ * A1.1 + A1.2 body builder: stacked facts, then blank line, then quoted narrator.
+ */
+export function bodyWithNarrator(facts: string[], narrator?: string): string {
+  const data = facts.filter((f) => f.length > 0);
+  if (!narrator) return data.join("\n");
+  return [...data, "", `"${narrator}"`].join("\n");
 }

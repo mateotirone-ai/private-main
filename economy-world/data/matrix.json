@@ -29,6 +29,7 @@
     "sawmill":       { "buyout": 3500,  "t2": { "price": 7000,  "buildMins": 40, "requiresProduced": 3000 } },
     "smeltery":      { "buyout": 4500,  "t2": { "price": 9000,  "buildMins": 50, "requiresProduced": 2500 } },
     "bakery":        { "buyout": 3000,  "t2": { "price": 6000,  "buildMins": 35, "requiresProduced": 3000 } },
+    "fishery":       { "buyout": 2200,  "t2": { "price": 4400,  "buildMins": 25, "requiresProduced": 4000 }, "_comment": "⚑ 10th L1 trade — was missing from Phase A matrix" },
     "general_store": { "buyout": 5000,  "t2": { "price": 10000, "buildMins": 45, "requiresProduced": 0 } }
   }
 }

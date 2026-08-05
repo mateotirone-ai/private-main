@@ -1,0 +1,117 @@
+{
+  "_comment": "Layer 1 ten-trade loop. Buyout/t2 mirrored from matrix.json. producePerTick + storageCap are ⚑ playtest tuning (master doc §13 CPU restock rates).",
+  "cpuProduceEveryMinutes": 10,
+  "trades": {
+    "stone_quarry": {
+      "name": "Stone Quarry",
+      "good": "stone",
+      "item": "minecraft:cobblestone",
+      "kind": "extraction",
+      "storageCap": 400,
+      "producePerTick": 8,
+      "buyout": 2500,
+      "t2": { "price": 5000, "buildMins": 30, "requiresProduced": 5000 }
+    },
+    "ore_mine": {
+      "name": "Ore Mine",
+      "good": "iron_ore",
+      "item": "minecraft:raw_iron",
+      "kind": "extraction",
+      "storageCap": 150,
+      "producePerTick": 4,
+      "buyout": 4000,
+      "t2": { "price": 8000, "buildMins": 45, "requiresProduced": 4000 }
+    },
+    "precious_mine": {
+      "name": "Precious Mine",
+      "good": "gold",
+      "item": "minecraft:gold_ingot",
+      "kind": "extraction",
+      "storageCap": 50,
+      "producePerTick": 1,
+      "buyout": 15000,
+      "t2": { "price": 25000, "buildMins": 90, "requiresProduced": 500 },
+      "_note": "Sells gold ore/ingots at storefront; mint still only via dealer."
+    },
+    "lumber_camp": {
+      "name": "Lumber Camp",
+      "good": "log",
+      "item": "minecraft:oak_log",
+      "kind": "extraction",
+      "storageCap": 300,
+      "producePerTick": 6,
+      "buyout": 2500,
+      "t2": { "price": 5000, "buildMins": 30, "requiresProduced": 5000 }
+    },
+    "crop_farm": {
+      "name": "Crop Farm",
+      "good": "wheat",
+      "item": "minecraft:wheat",
+      "kind": "extraction",
+      "storageCap": 300,
+      "producePerTick": 6,
+      "buyout": 2000,
+      "t2": { "price": 4000, "buildMins": 25, "requiresProduced": 6000 }
+    },
+    "sawmill": {
+      "name": "Sawmill",
+      "good": "lumber",
+      "item": "minecraft:oak_planks",
+      "kind": "processing",
+      "storageCap": 200,
+      "producePerTick": 4,
+      "buyout": 3500,
+      "t2": { "price": 7000, "buildMins": 40, "requiresProduced": 3000 }
+    },
+    "smeltery": {
+      "name": "Smeltery",
+      "good": "iron",
+      "item": "minecraft:iron_ingot",
+      "kind": "processing",
+      "storageCap": 100,
+      "producePerTick": 3,
+      "buyout": 4500,
+      "t2": { "price": 9000, "buildMins": 50, "requiresProduced": 2500 }
+    },
+    "bakery": {
+      "name": "Bakery",
+      "good": "bread",
+      "item": "minecraft:bread",
+      "kind": "processing",
+      "storageCap": 150,
+      "producePerTick": 4,
+      "buyout": 3000,
+      "t2": { "price": 6000, "buildMins": 35, "requiresProduced": 3000 }
+    },
+    "fishery": {
+      "name": "Fishery",
+      "good": "fish",
+      "item": "minecraft:cod",
+      "kind": "extraction",
+      "storageCap": 200,
+      "producePerTick": 5,
+      "buyout": 2200,
+      "t2": { "price": 4400, "buildMins": 25, "requiresProduced": 4000 },
+      "_comment": "⚑ 10th L1 trade — matrix.json only listed 9; fishery added to match layer1 'ten-trade' count."
+    },
+    "general_store": {
+      "name": "General Store",
+      "good": "bread",
+      "item": "minecraft:bread",
+      "kind": "service",
+      "storageCap": 100,
+      "producePerTick": 2,
+      "buyout": 5000,
+      "t2": { "price": 10000, "buildMins": 45, "requiresProduced": 0 },
+      "_note": "Service stub: restocks bread as a stand-in SKU until multi-SKU shops land."
+    }
+  },
+  "commons": {
+    "_comment": "Public gather floors — sell-to-matching-business only (master doc Commons). Zone regen is Phase D.",
+    "zones": [
+      { "id": "woodlot", "name": "Community Woodlot", "good": "log", "trade": "lumber_camp" },
+      { "id": "quarry_pit", "name": "Public Quarry Pit", "good": "stone", "trade": "stone_quarry" },
+      { "id": "forage", "name": "Forage Patch", "good": "wheat", "trade": "crop_farm" }
+    ]
+  }
+}

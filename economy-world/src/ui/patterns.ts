@@ -1,6 +1,7 @@
 /**
- * The seven pattern builders (Phase B ships P1–P4, P7).
- * ui-design-system.md §3. Confirm-first / Cancel-last. ≤8 options/page.
+ * The seven pattern builders (P1–P4, P7 for L1).
+ * ui-design-system.md §3 + ui-amendment-1.md A1.1–A1.4.
+ * Confirm-first / Cancel-last. ≤8 options/page.
  */
 import {
   ActionFormData,
@@ -9,23 +10,35 @@ import {
   type ModalFormResponse,
 } from "@minecraft/server-ui";
 import type { Player } from "@minecraft/server";
-import { Glyph, Ink, PAGE_SIZE, money, progressBar, titleWithGlyph } from "./theme";
+import {
+  Glyph,
+  Ink,
+  PAGE_SIZE,
+  bareAmount,
+  bodyWithNarrator,
+  merids,
+  progressBar,
+  titleWithGlyph,
+} from "./theme";
 import { Voice } from "./voice";
 import { toast } from "./toast";
 
 export interface HubButton {
   label: string;
+  /** A1.5: only on pre-existing Phase B buttons — omit on new screens. */
   glyph?: string;
   onSelect: () => void | Promise<void>;
 }
 
-/** P1 Menu Hub — button list with glyphs. */
+/** P1 Menu Hub — button list. Data facts first; narrator last (A1.2). */
 export async function menuHub(
   player: Player,
   opts: {
     title: string;
     glyph?: string;
-    context?: string;
+    /** One-fact-per-line data (A1.1). */
+    facts?: string[];
+    narrator?: string;
     buttons: HubButton[];
     page?: number;
   }
@@ -34,10 +47,10 @@ export async function menuHub(
   const totalPages = Math.max(1, Math.ceil(opts.buttons.length / PAGE_SIZE));
   const slice = opts.buttons.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
-  const form = new ActionFormData().title(titleWithGlyph(opts.glyph ?? Glyph.bank, opts.title));
-  const body = [opts.context ?? "", totalPages > 1 ? `Page ${page + 1}/${totalPages}` : ""]
-    .filter(Boolean)
-    .join("\n");
+  const form = new ActionFormData().title(titleWithGlyph(opts.glyph, opts.title));
+  const facts = [...(opts.facts ?? [])];
+  if (totalPages > 1) facts.push(`Page ${page + 1}/${totalPages}`);
+  const body = bodyWithNarrator(facts, opts.narrator);
   if (body) form.body(body);
 
   for (const b of slice) {
@@ -73,47 +86,44 @@ export async function menuHub(
     }
     idx -= 1;
   }
-  // Cancel
   toast(player, Voice.cancelled, "caution");
 }
 
 export interface TxnLine {
   label: string;
   amount: number;
-  /** loss = debit style, gain = credit style */
   sense?: "gain" | "loss" | "neutral";
 }
 
-/** P2 Transaction Confirm — itemized, balance-after, Confirm first / Cancel last. */
+/** P2 Transaction Confirm — A1.1 facts, A1.2 narrator last, A1.3/A1.4 amounts. */
 export async function confirmTxn(
   player: Player,
   opts: {
     title: string;
     glyph?: string;
-    context: string;
+    /** Stacked plain facts (no inline math). */
+    facts: string[];
     lines: TxnLine[];
     balanceBefore: number;
     balanceAfter: number;
+    narrator?: string;
     confirmLabel?: string;
   }
 ): Promise<boolean> {
-  const lines = opts.lines
-    .map((l) => {
-      const ink = l.sense === "gain" ? Ink.gain : l.sense === "loss" ? Ink.loss : Ink.gold;
-      return `${l.label}: ${ink}${money(l.amount)}${Ink.reset}`;
-    })
-    .join("\n");
-  const body = [
-    opts.context,
-    "",
-    lines,
-    "",
-    `Balance now: ${money(opts.balanceBefore)}`,
-    `Balance after: ${money(opts.balanceAfter)}`,
-  ].join("\n");
+  const lineFacts = opts.lines.map((l) => {
+    const ink = l.sense === "gain" ? Ink.gain : l.sense === "loss" ? Ink.loss : Ink.gold;
+    return `${l.label}: ${ink}${merids(l.amount)}${Ink.reset}`;
+  });
+  const facts = [
+    ...opts.facts,
+    ...lineFacts,
+    `Balance now: ${bareAmount(opts.balanceBefore)}`,
+    `Balance after: ${bareAmount(opts.balanceAfter)}`,
+  ];
+  const body = bodyWithNarrator(facts, opts.narrator);
 
   const form = new MessageFormData()
-    .title(titleWithGlyph(opts.glyph ?? Glyph.coin, opts.title))
+    .title(titleWithGlyph(opts.glyph, opts.title))
     .body(body)
     .button1(opts.confirmLabel ?? `${Glyph.check} Confirm`)
     .button2(`${Glyph.cross} Cancel`);
@@ -132,17 +142,19 @@ export interface CatalogEntry {
   glyph?: string;
   locked?: boolean;
   lockReason?: string;
-  detail?: string;
+  detailFacts?: string[];
+  detailNarrator?: string;
   onBuy: () => void | Promise<void>;
 }
 
-/** P3 Catalog Browse — paged; selection → detail → caller runs P2. */
+/** P3 Catalog Browse — button labels use bare/comma amounts (A1.3/A1.4). */
 export async function catalog(
   player: Player,
   opts: {
     title: string;
     glyph?: string;
-    context?: string;
+    facts?: string[];
+    narrator?: string;
     entries: CatalogEntry[];
     page?: number;
   }
@@ -151,14 +163,18 @@ export async function catalog(
   const totalPages = Math.max(1, Math.ceil(opts.entries.length / PAGE_SIZE));
   const slice = opts.entries.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
-  const form = new ActionFormData().title(titleWithGlyph(opts.glyph ?? Glyph.deed, opts.title));
-  if (opts.context) form.body(opts.context);
+  const form = new ActionFormData().title(titleWithGlyph(opts.glyph, opts.title));
+  const facts = [...(opts.facts ?? [])];
+  if (totalPages > 1) facts.push(`Page ${page + 1}/${totalPages}`);
+  const body = bodyWithNarrator(facts, opts.narrator);
+  if (body) form.body(body);
 
   for (const e of slice) {
+    const price = bareAmount(e.price);
     if (e.locked) {
-      form.button(`${Glyph.lock} ${e.name} — ${money(e.price)}`);
+      form.button(`${Glyph.lock} ${e.name} — ${price}`);
     } else {
-      form.button(`${e.glyph ? e.glyph + " " : ""}${e.name} — ${money(e.price)}`);
+      form.button(`${e.glyph ? e.glyph + " " : ""}${e.name} — ${price}`);
     }
   }
   if (page > 0) form.button(`${Glyph.up} Previous`);
@@ -176,10 +192,15 @@ export async function catalog(
       await catalog(player, opts);
       return;
     }
-    if (e.detail) {
+    if (e.detailFacts?.length) {
       const detail = new MessageFormData()
-        .title(titleWithGlyph(e.glyph ?? Glyph.deed, e.name))
-        .body(`${e.detail}\n\nPrice: ${money(e.price)}`)
+        .title(titleWithGlyph(e.glyph, e.name))
+        .body(
+          bodyWithNarrator(
+            [...e.detailFacts, `Price: ${merids(e.price)}`],
+            e.detailNarrator
+          )
+        )
         .button1(`${Glyph.check} Continue`)
         .button2(`${Glyph.cross} Back`);
       const d = await detail.show(player);
@@ -210,7 +231,6 @@ export async function catalog(
 export interface ManageField {
   type: "toggle" | "slider" | "dropdown" | "text";
   label: string;
-  /** slider */
   min?: number;
   max?: number;
   step?: number;
@@ -225,7 +245,7 @@ export interface ManageResult {
   raw: ModalFormResponse;
 }
 
-/** P4 Management Panel — modal form + Save (Confirm-shaped). */
+/** P4 Management Panel. */
 export async function managePanel(
   player: Player,
   opts: {
@@ -235,7 +255,7 @@ export async function managePanel(
     saveLabel?: string;
   }
 ): Promise<ManageResult | undefined> {
-  const form = new ModalFormData().title(titleWithGlyph(opts.glyph ?? Glyph.hammer, opts.title));
+  const form = new ModalFormData().title(titleWithGlyph(opts.glyph, opts.title));
   for (const f of opts.fields) {
     if (f.type === "toggle") {
       form.toggle(f.label, { defaultValue: Boolean(f.defaultValue) });
@@ -262,27 +282,26 @@ export async function managePanel(
 
 export interface ProgressRow {
   label: string;
-  /** 0..1 or absolute with total */
   filled?: number;
   total?: number;
   note?: string;
   ok?: boolean;
 }
 
-/** P7 Progress Panel — read-only status with bars / lock-check glyphs. */
+/** P7 Progress Panel — facts first, narrator last. */
 export async function progressPanel(
   player: Player,
   opts: {
     title: string;
     glyph?: string;
-    context?: string;
+    facts?: string[];
+    narrator?: string;
     rows: ProgressRow[];
     doneLabel?: string;
   }
 ): Promise<void> {
-  const lines = opts.rows.map((r) => {
-    const mark =
-      r.ok === true ? Glyph.check : r.ok === false ? Glyph.lock : "";
+  const rowLines = opts.rows.map((r) => {
+    const mark = r.ok === true ? Glyph.check : r.ok === false ? Glyph.lock : "";
     const bar =
       r.filled !== undefined && r.total !== undefined
         ? ` ${progressBar(r.filled, r.total)} ${r.filled}/${r.total}`
@@ -290,10 +309,10 @@ export async function progressPanel(
     const note = r.note ? `\n  ${Ink.slate}${r.note}${Ink.reset}` : "";
     return `${mark ? mark + " " : ""}${r.label}${bar}${note}`;
   });
-  const body = [opts.context ?? "", ...lines].filter(Boolean).join("\n");
+  const body = bodyWithNarrator([...(opts.facts ?? []), ...rowLines], opts.narrator);
 
   const form = new ActionFormData()
-    .title(titleWithGlyph(opts.glyph ?? Glyph.clock, opts.title))
+    .title(titleWithGlyph(opts.glyph, opts.title))
     .body(body)
     .button(opts.doneLabel ?? `${Glyph.check} Done`);
   await form.show(player);
