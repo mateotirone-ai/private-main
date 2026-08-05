@@ -1847,21 +1847,30 @@ function boot() {
       }
     }
   });
-  world3.afterEvents.playerInteractWithEntity.subscribe((ev) => {
+  world3.beforeEvents.playerInteractWithEntity.subscribe((ev) => {
+    console.log("[ew] playerInteractWithEntity beforeEvent fired");
     const tags = ev.target.getTags();
     if (tags.includes("ew:npc_bank")) {
-      void openBank(ev.player, ledger);
+      ev.cancel = true;
+      const player = ev.player;
+      system3.run(() => void openBank(player, ledger));
     } else if (tags.includes("ew:npc_dealer")) {
-      void openDealer(ev.player, ledger);
+      ev.cancel = true;
+      const player = ev.player;
+      system3.run(() => void openDealer(player, ledger));
     } else if (tags.includes("ew:npc_commons")) {
-      void openCommons(ev.player, ledger, bizState, pricesState);
+      ev.cancel = true;
+      const player = ev.player;
+      system3.run(() => void openCommons(player, ledger, bizState, pricesState));
     } else {
       const shopTag = tags.find((t) => t.startsWith("ew:shop_"));
       if (shopTag) {
+        ev.cancel = true;
         const trade = shopTag.slice("ew:shop_".length);
         const id = `cpu_${trade}`;
         if (bizState.byId[id]) {
-          void openStorefront(ev.player, ledger, bizState, pricesState, id);
+          const player = ev.player;
+          system3.run(() => void openStorefront(player, ledger, bizState, pricesState, id));
         } else {
           console.warn(`[ew] shop tag ${shopTag} has no business (known: ${Object.keys(bizState.byId).join(",")})`);
         }
