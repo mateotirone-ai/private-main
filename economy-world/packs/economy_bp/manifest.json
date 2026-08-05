@@ -2,9 +2,9 @@
   "format_version": 2,
   "header": {
     "name": "Economy World BP",
-    "description": "The living economy - behavior pack (Phase C)",
+    "description": "The living economy - behavior pack (Phase D)",
     "uuid": "9c303969-227e-4fbd-b078-e6ec63d75d3c",
-    "version": [0, 3, 0],
+    "version": [0, 4, 0],
     "min_engine_version": [1, 26, 0]
   },
   "modules": [
@@ -12,13 +12,13 @@
       "type": "script",
       "language": "javascript",
       "uuid": "b994818b-66d9-42de-96aa-a4131be99698",
-      "version": [0, 3, 0],
+      "version": [0, 4, 0],
       "entry": "scripts/main.js"
     }
   ],
   "dependencies": [
     { "module_name": "@minecraft/server", "version": "2.9.0" },
     { "module_name": "@minecraft/server-ui", "version": "2.1.0" },
-    { "uuid": "11265421-239d-4a2f-bd90-f2ed963f04a5", "version": [0, 3, 0] }
+    { "uuid": "11265421-239d-4a2f-bd90-f2ed963f04a5", "version": [0, 4, 0] }
   ]
 }

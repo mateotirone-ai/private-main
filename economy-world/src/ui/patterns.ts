@@ -63,7 +63,6 @@ export async function menuHub(
 
   const res = await safeShow(player, form);
   if (res.canceled || res.selection === undefined) {
-    toast(player, Voice.cancelled, "caution");
     return;
   }
 
@@ -87,7 +86,7 @@ export async function menuHub(
     }
     idx -= 1;
   }
-  toast(player, Voice.cancelled, "caution");
+  // Explicit Cancel is intentionally silent.
 }
 
 export interface TxnLine {
@@ -131,7 +130,6 @@ export async function confirmTxn(
 
   const res = await safeShow(player, form);
   if (res.canceled || res.selection === undefined || res.selection === 1) {
-    toast(player, Voice.cancelled, "caution");
     return false;
   }
   return true;
@@ -275,7 +273,6 @@ export async function managePanel(
 
   const res = await safeShow(player, form);
   if (res.canceled || !res.formValues) {
-    toast(player, Voice.cancelled, "caution");
     return undefined;
   }
   return { values: res.formValues, raw: res };

@@ -46,6 +46,5 @@ export function quoteUnit(current: number): number {
 export function freelancePayout(current: number, qty: number, rate: number): number {
   if (!Number.isInteger(qty) || qty <= 0) throw new Error(`invalid qty: ${qty}`);
   if (!(rate > 0) || rate > 1) throw new Error(`invalid freelance rate: ${rate}`);
-  const unit = Math.max(1, Math.floor(current * rate));
-  return unit * qty;
+  return Math.max(1, Math.round(current * qty * rate));
 }

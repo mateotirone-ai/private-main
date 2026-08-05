@@ -4,3 +4,4 @@ node_modules/
 .npm/
 economy-world-phase-a.zip
 /package-lock.json
+economy-world/packs/economy_bp/scripts/main.js

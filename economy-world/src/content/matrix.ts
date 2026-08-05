@@ -11,7 +11,32 @@ export interface Matrix {
   freelanceRate: number;
   wagePerHourByTier: Record<string, number>;
   bank: { transferFee: number };
-  cash: { denominations: number[] };
+  cash: { denominations: number[]; walletDefaultExtract: number };
+  ui: {
+    toast: {
+      maxTitleChars: number;
+      maxSubtitleChars: number;
+      fadeInTicks: number;
+      stayTicks: number;
+      fadeOutTicks: number;
+    };
+  };
+  work: {
+    zoneRadius: number;
+    nodeStages: { depletedTicks: number; recoveringTicks: number };
+    processingSweepTicks: number;
+    processing: Record<
+      string,
+      { inputTrade: string; inputQty: number; outputQty: number; durationTicks: number }
+    >;
+    service: { spawnEveryTicks: number; requestQty: number; activeMarginBonus: number };
+    employment: {
+      cpuMultiplier: number;
+      offlineOwnerMultiplier: number;
+      activeOwnerMultiplier: number;
+      ticksPerHour: number;
+    };
+  };
   dealer: {
     dailyCapacity: Record<PreciousGood, number>;
     softFloor: number;

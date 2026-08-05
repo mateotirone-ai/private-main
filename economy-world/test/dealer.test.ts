@@ -51,11 +51,11 @@ describe("dealer daily-capacity price softening", () => {
     expect(q.softened).toBe(true);
 
     // manual sum must match
-    let manual = 0;
+    let exactTotal = 0;
     for (let i = 0; i < qty; i++) {
-      manual += Math.floor(goldBase * unitMultiplier(i, goldCap, softFloor));
+      exactTotal += goldBase * unitMultiplier(i, goldCap, softFloor);
     }
-    expect(q.payout).toBe(manual);
+    expect(q.payout).toBe(Math.round(exactTotal));
   });
 
   it("a second sale after a dump pays less per unit", () => {

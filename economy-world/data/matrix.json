@@ -10,7 +10,36 @@
   },
   "cash": {
     "_comment": "Denominations locked by layer1-technical-spec.md §3 (ew:cash_1/10/100/1000).",
-    "denominations": [1000, 100, 10, 1]
+    "denominations": [1000, 100, 10, 1],
+    "walletDefaultExtract": 100
+  },
+  "ui": {
+    "_comment": "⚑ Toast timing/line limits tuned for couch legibility; not numerically specified in the UI docs.",
+    "toast": { "maxTitleChars": 28, "maxSubtitleChars": 52, "fadeInTicks": 3, "stayTicks": 60, "fadeOutTicks": 8 }
+  },
+  "work": {
+    "_comment": "⚑ Phase D timing/capacity numbers are implementation placeholders where docs define behavior but not values.",
+    "zoneRadius": 24,
+    "nodeStages": { "depletedTicks": 100, "recoveringTicks": 300 },
+    "processingSweepTicks": 20,
+    "processing": {
+      "sawmill": { "inputTrade": "lumber_camp", "inputQty": 2, "outputQty": 4, "durationTicks": 200 },
+      "smeltery": { "inputTrade": "ore_mine", "inputQty": 2, "outputQty": 1, "durationTicks": 300 },
+      "bakery": { "inputTrade": "crop_farm", "inputQty": 3, "outputQty": 2, "durationTicks": 160 }
+    },
+    "service": {
+      "_comment": "⚑ CPU customer cadence/order size/active margin bonus are not quantified.",
+      "spawnEveryTicks": 600,
+      "requestQty": 2,
+      "activeMarginBonus": 0.2
+    },
+    "employment": {
+      "_comment": "Owner presence multipliers are locked by master design; employee output ceiling is ⚑.",
+      "cpuMultiplier": 0.1,
+      "offlineOwnerMultiplier": 0.5,
+      "activeOwnerMultiplier": 1,
+      "ticksPerHour": 72000
+    }
   },
   "dealer": {
     "_comment": "⚑ daily capacity + softFloor — master doc locks 'price softens with volume' but gives no numbers. Linear soften: mult = 1 - min(1, soldToday/capacity) * (1 - softFloor).",

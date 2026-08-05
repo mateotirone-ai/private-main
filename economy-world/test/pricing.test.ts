@@ -67,7 +67,13 @@ describe("pricing engine math", () => {
     const rate = matrix.freelanceRate;
     expect(rate).toBe(0.45);
     const payout = freelancePayout(10, 4, rate);
-    expect(payout).toBe(Math.max(1, Math.floor(10 * rate)) * 4);
+    expect(payout).toBe(Math.round(10 * 4 * rate));
     expect(() => freelancePayout(10, 0, rate)).toThrow(/invalid qty/);
+  });
+
+  it("rounds freelancer payout once on the total", () => {
+    // Per-unit flooring would pay 3 × floor(2 × .45) = 0 (or 3 with a min).
+    // Total rounding preserves the configured 45%: round(2 × 3 × .45) = 3.
+    expect(freelancePayout(2, 3, matrix.freelanceRate)).toBe(3);
   });
 });

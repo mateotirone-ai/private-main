@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { produceOnce, seedCpuBusinesses, runCpuProduction } from "../src/systems/businessMath";
 import { tradeDef, allTradeIds, cpuProduceEveryMinutes } from "../src/content/trades";
+import { ownerPresenceMultiplier } from "../src/systems/employmentMath";
+import { matrix } from "../src/content/matrix";
 
 describe("CPU business output rates", () => {
   it("seeds one CPU business per Layer-1 trade", () => {
@@ -47,15 +49,25 @@ describe("CPU business output rates", () => {
     expect(produceOnce(biz)).toBe(0);
   });
 
-  it("runCpuProduction skips player-owned and reports stock deltas", () => {
+  it("runCpuProduction applies owner presence and reports stock deltas", () => {
     const byId = seedCpuBusinesses();
-    const before = byId["cpu_lumber_camp"]!.storage;
     byId["cpu_bakery"]!.owner = "p:someone";
     const bakeryBefore = byId["cpu_bakery"]!.storage;
-    const results = runCpuProduction(byId);
-    expect(byId["cpu_lumber_camp"]!.storage).toBe(before + tradeDef("lumber_camp").producePerTick);
-    expect(byId["cpu_bakery"]!.storage).toBe(bakeryBefore);
-    expect(results.some((r) => r.trade === "lumber_camp")).toBe(true);
-    expect(results.some((r) => r.trade === "bakery")).toBe(false);
+    const results = runCpuProduction(
+      byId,
+      new Set<string>(),
+      matrix.work.employment
+    );
+    expect(byId["cpu_bakery"]!.storage).toBe(
+      bakeryBefore + Math.floor(tradeDef("bakery").producePerTick * 0.5)
+    );
+    expect(results.some((r) => r.trade === "bakery")).toBe(true);
+  });
+
+  it("uses locked owner-presence output multipliers", () => {
+    const cfg = matrix.work.employment;
+    expect(ownerPresenceMultiplier("cpu", new Set(), cfg)).toBe(0.1);
+    expect(ownerPresenceMultiplier("p:owner", new Set(), cfg)).toBe(0.5);
+    expect(ownerPresenceMultiplier("p:owner", new Set(["p:owner"]), cfg)).toBe(1);
   });
 });

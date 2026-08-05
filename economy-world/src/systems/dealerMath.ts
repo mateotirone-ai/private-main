@@ -4,7 +4,7 @@
  * Formula (Phase B, params from data/matrix.json):
  *   mult(soldToday) = 1 - min(1, soldToday / capacity) * (1 - softFloor)
  * Each unit in a sale is priced with the multiplier at its position in today's volume.
- * Payout is the integer sum of per-unit prices (floor each unit).
+ * Binding rounding rule: sum the exact total, then round once at the end.
  */
 
 export function unitMultiplier(soldBefore: number, capacity: number, softFloor: number): number {
@@ -19,7 +19,7 @@ export interface SaleQuote {
   base: number;
   /** integer merids minted for this sale */
   payout: number;
-  /** average integer price per unit (payout / qty, floored display) */
+  /** average integer price per unit for display */
   avgUnitPrice: number;
   /** multiplier applied to the first unit */
   firstMult: number;
@@ -40,22 +40,23 @@ export function quoteSale(
   if (!Number.isInteger(base) || base <= 0) throw new Error(`invalid base: ${base}`);
   if (!Number.isInteger(soldToday) || soldToday < 0) throw new Error(`invalid soldToday: ${soldToday}`);
 
-  let payout = 0;
+  let exactTotal = 0;
   let firstMult = 0;
   let lastMult = 0;
   for (let i = 0; i < qty; i++) {
     const m = unitMultiplier(soldToday + i, capacity, softFloor);
     if (i === 0) firstMult = m;
     lastMult = m;
-    payout += Math.floor(base * m);
+    exactTotal += base * m;
   }
+  const payout = Math.round(exactTotal);
   if (payout <= 0) throw new Error("sale payout collapsed to zero — capacity/softFloor misconfigured");
 
   return {
     qty,
     base,
     payout,
-    avgUnitPrice: Math.floor(payout / qty),
+    avgUnitPrice: Math.round(exactTotal / qty),
     firstMult,
     lastMult,
     softened: firstMult < 1 - 1e-9 || lastMult < 1 - 1e-9,

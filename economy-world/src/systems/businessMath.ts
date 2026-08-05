@@ -2,6 +2,10 @@
  * Pure CPU production math — no Minecraft imports.
  */
 import { tradeDef, allTradeIds, type TradeDef } from "../content/trades";
+import {
+  ownerPresenceMultiplier,
+  type PresenceMultipliers,
+} from "./employmentMath";
 
 export interface BizSnap {
   id: string;
@@ -10,6 +14,7 @@ export interface BizSnap {
   owner: "cpu" | string;
   storage: number;
   producedTotal: number;
+  productionRemainder?: number;
 }
 
 export function seedCpuBusinesses(): Record<string, BizSnap> {
@@ -24,15 +29,23 @@ export function seedCpuBusinesses(): Record<string, BizSnap> {
       owner: "cpu",
       storage: Math.floor(def.storageCap / 2),
       producedTotal: 0,
+      productionRemainder: 0,
     };
   }
   return byId;
 }
 
 /** Pure CPU production step. Returns units added. */
-export function produceOnce(biz: BizSnap, def: TradeDef = tradeDef(biz.trade)): number {
+export function produceOnce(
+  biz: BizSnap,
+  def: TradeDef = tradeDef(biz.trade),
+  multiplier = 1
+): number {
   const room = Math.max(0, def.storageCap - biz.storage);
-  const add = Math.min(def.producePerTick, room);
+  const exact = def.producePerTick * multiplier + (biz.productionRemainder ?? 0);
+  const whole = Math.floor(exact);
+  const add = Math.min(whole, room);
+  biz.productionRemainder = room > add ? exact - whole : 0;
   biz.storage += add;
   biz.producedTotal += add;
   return add;
@@ -44,13 +57,21 @@ export interface ProductionResult {
   added: number;
 }
 
-/** Advance all CPU-owned businesses; returns per-biz additions for stock updates. */
-export function runCpuProduction(byId: Record<string, BizSnap>): ProductionResult[] {
+/** Advance businesses under the master-design owner-presence rules. */
+export function runCpuProduction(
+  byId: Record<string, BizSnap>,
+  activeOwnerIds: ReadonlySet<string> = new Set(),
+  multipliers: PresenceMultipliers = {
+    cpuMultiplier: 1,
+    offlineOwnerMultiplier: 1,
+    activeOwnerMultiplier: 1,
+  }
+): ProductionResult[] {
   const out: ProductionResult[] = [];
   for (const biz of Object.values(byId)) {
-    if (biz.owner !== "cpu") continue;
     const def = tradeDef(biz.trade);
-    const added = produceOnce(biz, def);
+    const multiplier = ownerPresenceMultiplier(biz.owner, activeOwnerIds, multipliers);
+    const added = produceOnce(biz, def, multiplier);
     if (added > 0) out.push({ trade: biz.trade, good: def.good, added });
   }
   return out;

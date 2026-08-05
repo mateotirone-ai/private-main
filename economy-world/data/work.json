@@ -1,0 +1,41 @@
+{
+  "_comment": "Phase D work-engine content. Numeric tuning lives in data/matrix.json.",
+  "extraction": {
+    "stone_quarry": {
+      "harvestBlocks": ["minecraft:stone", "minecraft:cobblestone"],
+      "readyBlock": "minecraft:stone"
+    },
+    "ore_mine": {
+      "harvestBlocks": ["minecraft:iron_ore", "minecraft:deepslate_iron_ore"],
+      "readyBlock": "minecraft:iron_ore"
+    },
+    "precious_mine": {
+      "harvestBlocks": ["minecraft:gold_ore", "minecraft:deepslate_gold_ore"],
+      "readyBlock": "minecraft:gold_ore"
+    },
+    "lumber_camp": {
+      "harvestBlocks": ["minecraft:oak_log"],
+      "readyBlock": "minecraft:oak_log"
+    },
+    "crop_farm": {
+      "harvestBlocks": ["minecraft:wheat"],
+      "readyBlock": "minecraft:wheat"
+    },
+    "fishery": {
+      "harvestBlocks": ["ew:fishing_spot"],
+      "readyBlock": "ew:fishing_spot"
+    }
+  },
+  "processing": {
+    "sawmill": { "inputGood": "log", "outputGood": "lumber" },
+    "smeltery": { "inputGood": "iron_ore", "outputGood": "iron" },
+    "bakery": { "inputGood": "wheat", "outputGood": "bread" }
+  },
+  "service": {
+    "general_store": { "needGood": "bread" }
+  },
+  "stageBlocks": {
+    "depleted": "ew:node_depleted",
+    "recovering": "ew:node_recovering"
+  }
+}

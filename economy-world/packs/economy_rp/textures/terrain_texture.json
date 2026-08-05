@@ -1,0 +1,11 @@
+{
+  "resource_pack_name": "economy_rp",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "ew_node_depleted": { "textures": "textures/blocks/bedrock" },
+    "ew_node_recovering": { "textures": "textures/blocks/moss_block" },
+    "ew_fishing_spot": { "textures": "textures/blocks/lapis_block" }
+  }
+}

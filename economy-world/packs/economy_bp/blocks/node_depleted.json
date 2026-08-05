@@ -1,0 +1,17 @@
+{
+  "format_version": "1.21.30",
+  "minecraft:block": {
+    "description": {
+      "identifier": "ew:node_depleted",
+      "menu_category": { "category": "none" }
+    },
+    "components": {
+      "minecraft:destructible_by_mining": false,
+      "minecraft:destructible_by_explosion": false,
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": { "texture": "ew_node_depleted", "render_method": "opaque" }
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ import { allTradeIds, tradeDef, cpuProduceEveryMinutes } from "../content/trades
 import { mint, balance, type LedgerState, type AccountId } from "../core/ledger";
 import { every, currentTick } from "../core/scheduler";
 import { adjustStock, type PricesState } from "./pricing";
+import { matrix } from "../content/matrix";
 import {
   seedCpuBusinesses,
   produceOnce,
@@ -45,6 +46,7 @@ export function loadBusinesses(): BusinessesState {
         owner: "cpu",
         storage: Math.floor(def.storageCap / 2),
         producedTotal: 0,
+        productionRemainder: 0,
       };
     }
   }
@@ -55,8 +57,16 @@ export function saveBusinesses(s: BusinessesState): void {
   saveBlob(KEY, s);
 }
 
-export function runCpuProduction(s: BusinessesState, prices: PricesState): void {
-  const results = runCpuProductionPure(s.byId);
+export function runCpuProduction(
+  s: BusinessesState,
+  prices: PricesState,
+  activeOwnerIds: ReadonlySet<string> = new Set()
+): void {
+  const results = runCpuProductionPure(
+    s.byId,
+    activeOwnerIds,
+    matrix.work.employment
+  );
   for (const r of results) adjustStock(prices, r.good, r.added);
 }
 
@@ -72,13 +82,14 @@ export function startBusinessJobs(
   getBiz: () => BusinessesState,
   setBiz: (s: BusinessesState) => void,
   getPrices: () => PricesState,
-  setPrices: (s: PricesState) => void
+  setPrices: (s: PricesState) => void,
+  getActiveOwnerIds: () => ReadonlySet<string>
 ): void {
   const everyTicks = Math.max(1, Math.floor(cpuProduceEveryMinutes() * 60 * 20));
   every("biz:cpu_produce", everyTicks, () => {
     const biz = getBiz();
     const prices = getPrices();
-    runCpuProduction(biz, prices);
+    runCpuProduction(biz, prices, getActiveOwnerIds());
     setBiz(biz);
     setPrices(prices);
     saveBusinesses(biz);
