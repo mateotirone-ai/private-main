@@ -70,6 +70,7 @@ import {
   type ServiceState,
 } from "./systems/service";
 import { seedTown } from "./systems/town";
+import { placeBusinessStructure } from "./systems/structurePlacement";
 import {
   openOwnershipPanel,
   setSuccessorSpawnHook,
@@ -429,6 +430,23 @@ function boot(): void {
           }
           break;
         }
+        case "place": {
+          if (!player) break;
+          try {
+            const result = placeBusinessStructure(
+              player,
+              bizState,
+              extractionState,
+              command.argument!
+            );
+            world.sendMessage(
+              `§a[dev] placed ${result.trade} at ${result.anchor.x},${result.anchor.y},${result.anchor.z} rot=${result.rotationSteps}`
+            );
+          } catch (error) {
+            world.sendMessage(`§c[dev] place failed: ${error}`);
+          }
+          break;
+        }
       }
       return;
     }
@@ -595,8 +613,39 @@ function boot(): void {
         return;
       }
       const shopTag = tags.find((t) => t.startsWith("ew:shop_"));
+      const officeTag = tags.find((t) => t.startsWith("ew:office_"));
       const bizTag = tags.find((t) => t.startsWith("ew:biz_"));
       const ownerTag = tags.find((t) => t.startsWith("ew:owner_"));
+      if (officeTag && bizTag) {
+        ev.cancel = true;
+        const businessId = bizTag.slice("ew:biz_".length);
+        const business = bizState.byId[businessId];
+        if (!business) return;
+        const player = ev.player;
+        const speaker = ev.target.nameTag || `${tradeDef(business.trade).name} Office`;
+        const activeSession = employmentState.sessions[player.id];
+        const isClockedHere = activeSession?.businessId === business.id;
+        speakNpcPrelude(player, speaker, tags, "jobs", business.trade);
+        system.run(
+          () =>
+            void withNpcSpeaker(player, speaker, () => {
+              if (business.owner === player.id) {
+                return openOwnershipPanel(
+                  player,
+                  ledger,
+                  bizState,
+                  business.trade,
+                  business.id
+                );
+              }
+              if (isClockedHere) {
+                return openJobBoard(player, ledger, bizState, employmentState);
+              }
+              return openJobBoard(player, ledger, bizState, employmentState);
+            })
+        );
+        return;
+      }
       if (ownerTag) {
         ev.cancel = true;
         const trade = ownerTag.slice("ew:owner_".length);

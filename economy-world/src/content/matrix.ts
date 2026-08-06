@@ -32,6 +32,15 @@ export interface Matrix {
       priorities: Record<string, number>;
     };
   };
+  town: {
+    streetMaterialSetByEra: Record<
+      string,
+      {
+        street: string;
+        stub: string;
+      }
+    >;
+  };
   work: {
     nodeStampOffsets: Array<{ x: number; y: number; z: number }>;
     nodeStages: { depletedTicks: number; recoveringTicks: number };

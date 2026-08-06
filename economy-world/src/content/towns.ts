@@ -7,6 +7,27 @@ export interface TownOffset {
   z: number;
 }
 
+export type FrontageDirection = "north" | "east" | "south" | "west";
+
+export interface TownStreetPolyline {
+  id: string;
+  points: TownOffset[];
+}
+
+export interface TownLayoutSlot {
+  id: string;
+  trade?: string;
+  civicId?: string;
+  frontage: FrontageDirection;
+  gateOffset: TownOffset;
+}
+
+export interface TownLayout {
+  era: string;
+  streetPolylines: TownStreetPolyline[];
+  slots: TownLayoutSlot[];
+}
+
 export type TownAnchor =
   | { mode: "player" }
   | { mode: "fixed"; x: number; y: number; z: number };
@@ -63,6 +84,7 @@ export interface TownManifest {
   stations: TownStationHost[];
   serviceHosts: TownServiceHost[];
   workZones: TownWorkZone[];
+  layout?: TownLayout;
 }
 
 export interface TownsFile {
@@ -79,6 +101,12 @@ function assertTrade(trade: string): void {
 function assertOffset(offset: TownOffset): void {
   if (![offset.x, offset.y, offset.z].every(Number.isFinite)) {
     throw new Error("town offset must be finite");
+  }
+}
+
+function assertFrontage(frontage: FrontageDirection): void {
+  if (!["north", "east", "south", "west"].includes(frontage)) {
+    throw new Error(`invalid frontage: ${frontage}`);
   }
 }
 
@@ -116,6 +144,29 @@ function validateTown(town: TownManifest): void {
       throw new Error(`work zone ${zone.trade} must be an extraction trade`);
     }
     assertOffset(zone.offset);
+  }
+  if (town.layout) {
+    if (!town.layout.era.trim()) {
+      throw new Error(`town ${town.id} layout must define era`);
+    }
+    for (const street of town.layout.streetPolylines) {
+      if (!street.id.trim()) {
+        throw new Error(`town ${town.id} has a street with empty id`);
+      }
+      if (street.points.length < 2) {
+        throw new Error(`town ${town.id} street ${street.id} needs at least 2 points`);
+      }
+      for (const point of street.points) assertOffset(point);
+    }
+    for (const slot of town.layout.slots) {
+      if (!slot.id.trim()) throw new Error(`town ${town.id} has slot with empty id`);
+      if (!slot.trade && !slot.civicId) {
+        throw new Error(`town ${town.id} slot ${slot.id} must reference trade or civicId`);
+      }
+      if (slot.trade) assertTrade(slot.trade);
+      assertFrontage(slot.frontage);
+      assertOffset(slot.gateOffset);
+    }
   }
 }
 

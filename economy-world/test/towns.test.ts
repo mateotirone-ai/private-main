@@ -27,4 +27,17 @@ describe("town manifests", () => {
     const ids = allTowns().map((town) => town.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("defines street polylines and frontage metadata for layout slots", () => {
+    const town = townManifest(defaultTownId());
+    if (!town?.layout) throw new Error("missing default town layout");
+    expect(town.layout.streetPolylines.length).toBeGreaterThan(0);
+    expect(town.layout.streetPolylines.every((street) => street.points.length >= 2)).toBe(true);
+    expect(town.layout.slots.some((slot) => Boolean(slot.trade))).toBe(true);
+    expect(
+      town.layout.slots.every((slot) =>
+        ["north", "east", "south", "west"].includes(slot.frontage)
+      )
+    ).toBe(true);
+  });
 });

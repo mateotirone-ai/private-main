@@ -1,0 +1,42 @@
+{
+  "_comment": "⚑ Structure pads/frontage/gate offsets are first-pass live-test placeholders; tune per captured build.",
+  "trades": {
+    "stone_quarry": {
+      "frontFace": "south",
+      "pad": { "x": 34, "z": 28 },
+      "successorOffset": { "x": 40, "y": 0, "z": 0 },
+      "tiers": {
+        "1": {
+          "id": "ew:stone_quarry_t1",
+          "anchorOffset": { "x": 0, "y": 0, "z": 0 },
+          "gateOffset": { "x": 17, "y": 0, "z": 29 },
+          "npcOffsets": {
+            "storefront": { "x": 17, "y": 1, "z": 24 },
+            "office": { "x": 14, "y": 1, "z": 20 }
+          },
+          "workZoneOffset": { "x": 17, "y": 0, "z": 8 }
+        },
+        "2": {
+          "id": "ew:stone_quarry_t2",
+          "anchorOffset": { "x": 0, "y": 0, "z": 0 },
+          "gateOffset": { "x": 17, "y": 0, "z": 29 },
+          "npcOffsets": {
+            "storefront": { "x": 17, "y": 1, "z": 24 },
+            "office": { "x": 14, "y": 1, "z": 20 }
+          },
+          "workZoneOffset": { "x": 17, "y": 0, "z": 8 }
+        },
+        "3": {
+          "id": "ew:stone_quarry_t3",
+          "anchorOffset": { "x": 0, "y": 0, "z": 0 },
+          "gateOffset": { "x": 17, "y": 0, "z": 29 },
+          "npcOffsets": {
+            "storefront": { "x": 17, "y": 1, "z": 24 },
+            "office": { "x": 14, "y": 1, "z": 20 }
+          },
+          "workZoneOffset": { "x": 17, "y": 0, "z": 8 }
+        }
+      }
+    }
+  }
+}

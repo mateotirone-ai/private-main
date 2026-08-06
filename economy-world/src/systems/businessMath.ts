@@ -22,6 +22,14 @@ export interface BizSnap {
   revenueHistory: Array<{ tick: number; amount: number }>;
   employeeSlots: string[];
   successorOf: string | null;
+  site:
+    | {
+        dimensionId: string;
+        anchor: { x: number; y: number; z: number };
+        rotationSteps: 0 | 1 | 2 | 3;
+        mirror: "none" | "x" | "z" | "xz";
+      }
+    | null;
   construction:
     | {
         targetTier: 1 | 2 | 3;
@@ -52,6 +60,7 @@ export function seedCpuBusinesses(): Record<string, BizSnap> {
       revenueHistory: [],
       employeeSlots: [],
       successorOf: null,
+      site: null,
       construction: null,
     };
   }

@@ -74,7 +74,40 @@
         { "trade": "stone_quarry", "public": true, "offset": { "x": 12, "y": 0, "z": -10 } },
         { "trade": "lumber_camp", "public": true, "offset": { "x": 18, "y": 0, "z": -10 } },
         { "trade": "crop_farm", "public": true, "offset": { "x": 24, "y": 0, "z": -10 } }
-      ]
+      ],
+      "layout": {
+        "era": "starter",
+        "streetPolylines": [
+          {
+            "id": "main_east_west",
+            "points": [
+              { "x": -28, "y": 0, "z": 20 },
+              { "x": 28, "y": 0, "z": 20 }
+            ]
+          },
+          {
+            "id": "service_row",
+            "points": [
+              { "x": -20, "y": 0, "z": 28 },
+              { "x": 8, "y": 0, "z": 28 }
+            ]
+          }
+        ],
+        "slots": [
+          { "id": "shop_stone_quarry", "trade": "stone_quarry", "frontage": "south", "gateOffset": { "x": -18, "y": 0, "z": 17 } },
+          { "id": "shop_ore_mine", "trade": "ore_mine", "frontage": "south", "gateOffset": { "x": -12, "y": 0, "z": 17 } },
+          { "id": "shop_precious_mine", "trade": "precious_mine", "frontage": "south", "gateOffset": { "x": -6, "y": 0, "z": 17 } },
+          { "id": "shop_lumber_camp", "trade": "lumber_camp", "frontage": "south", "gateOffset": { "x": 0, "y": 0, "z": 17 } },
+          { "id": "shop_crop_farm", "trade": "crop_farm", "frontage": "south", "gateOffset": { "x": 6, "y": 0, "z": 17 } },
+          { "id": "shop_fishery", "trade": "fishery", "frontage": "south", "gateOffset": { "x": 12, "y": 0, "z": 17 } },
+          { "id": "shop_sawmill", "trade": "sawmill", "frontage": "south", "gateOffset": { "x": -18, "y": 0, "z": 24 } },
+          { "id": "shop_smeltery", "trade": "smeltery", "frontage": "south", "gateOffset": { "x": -12, "y": 0, "z": 24 } },
+          { "id": "shop_bakery", "trade": "bakery", "frontage": "south", "gateOffset": { "x": -6, "y": 0, "z": 24 } },
+          { "id": "shop_general_store", "trade": "general_store", "frontage": "south", "gateOffset": { "x": 0, "y": 0, "z": 24 } },
+          { "id": "civic_bank", "civicId": "bank", "frontage": "south", "gateOffset": { "x": 0, "y": 0, "z": 1 } },
+          { "id": "civic_jobs", "civicId": "jobs", "frontage": "south", "gateOffset": { "x": 15, "y": 0, "z": 1 } }
+        ]
+      }
     }
   ]
 }

@@ -18,7 +18,7 @@ export type Business = BizSnap;
 export { produceOnce };
 
 export interface BusinessesState {
-  schema: 2;
+  schema: 3;
   byId: Record<string, Business>;
 }
 
@@ -29,7 +29,7 @@ export function bizAccount(bizId: string): AccountId {
 }
 
 export function emptyBusinesses(): BusinessesState {
-  return { schema: 2, byId: seedCpuBusinesses() };
+  return { schema: 3, byId: seedCpuBusinesses() };
 }
 
 function ensureBusinessDefaults(business: Business): void {
@@ -43,13 +43,14 @@ function ensureBusinessDefaults(business: Business): void {
   business.revenueHistory ??= [];
   business.employeeSlots ??= [];
   business.successorOf ??= null;
+  business.site ??= null;
   business.construction ??= null;
 }
 
 export function loadBusinesses(): BusinessesState {
   const s = loadBlob<BusinessesState>(KEY);
   if (!s) return emptyBusinesses();
-  s.schema = 2;
+  s.schema = 3;
   for (const business of Object.values(s.byId)) ensureBusinessDefaults(business);
   for (const trade of allTradeIds()) {
     const id = `cpu_${trade}`;
@@ -70,6 +71,7 @@ export function loadBusinesses(): BusinessesState {
         revenueHistory: [],
         employeeSlots: [],
         successorOf: null,
+        site: null,
         construction: null,
       };
     }

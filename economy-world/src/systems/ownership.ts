@@ -37,6 +37,7 @@ import {
   releaseBusinessLock,
   type OwnershipFirsts,
 } from "./ownershipPolicy";
+import { reloadBusinessStructure } from "./structurePlacement";
 
 interface OwnershipState extends OwnershipFirsts {
   schema: 2;
@@ -761,6 +762,7 @@ export function startOwnershipJobs(businesses: BusinessesState): void {
       const completedTier = business.construction.targetTier;
       business.tier = business.construction.targetTier;
       business.construction = null;
+      reloadBusinessStructure(business);
       noteDialogueEvent({
         kind: "construction",
         summary: `${tradeDef(business.trade).name} completed its T${completedTier} upgrade`,

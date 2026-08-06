@@ -41,6 +41,15 @@
       }
     }
   },
+  "town": {
+    "_comment": "⚑ Era-tier street material sets are placeholders until map-art pass.",
+    "streetMaterialSetByEra": {
+      "starter": {
+        "street": "minecraft:cobblestone",
+        "stub": "minecraft:gravel"
+      }
+    }
+  },
   "work": {
     "_comment": "⚑ Phase D timing/capacity numbers are implementation placeholders where docs define behavior but not values.",
     "_nodeStampComment": "⚑ Authored 3x3 test-pit layout; spacing and count are not specified.",
