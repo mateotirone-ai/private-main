@@ -67,4 +67,4 @@ fill ~-1 ~10 ~5 ~13 ~10 ~5 dark_oak_stairs ["weirdo_direction"=2,"upside_down_bi
 # dock-side loading opening
 fill ~12 ~1 ~5 ~12 ~4 ~7 air
 
-say [build] Fishery T1 shell placed. Decorate away.
+say Fishery T1 shell placed. Decorate away.

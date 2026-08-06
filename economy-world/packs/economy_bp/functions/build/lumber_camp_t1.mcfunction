@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~13 ~11 ~6 spruce_stairs ["weirdo_direction"=2,"upside_down_bit"
 # open log-yard side (removes the +x wall behind the partition)
 fill ~12 ~1 ~5 ~12 ~4 ~9 air
 
-say [build] Lumber Camp T1 shell placed. Decorate away.
+say Lumber Camp T1 shell placed. Decorate away.

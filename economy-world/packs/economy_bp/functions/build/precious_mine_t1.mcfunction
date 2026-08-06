@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~11 ~11 ~6 polished_blackstone_brick_stairs ["weirdo_direction"=
 # strongroom alcove, back-left
 fill ~1 ~1 ~7 ~3 ~3 ~9 air
 
-say [build] Precious Mine T1 shell placed. Decorate away.
+say Precious Mine T1 shell placed. Decorate away.

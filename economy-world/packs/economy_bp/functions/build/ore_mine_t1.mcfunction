@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~13 ~11 ~6 deepslate_tile_stairs ["weirdo_direction"=2,"upside_d
 # adit mouth in the back wall
 fill ~5 ~1 ~10 ~7 ~4 ~10 air
 
-say [build] Ore Mine T1 shell placed. Decorate away.
+say Ore Mine T1 shell placed. Decorate away.

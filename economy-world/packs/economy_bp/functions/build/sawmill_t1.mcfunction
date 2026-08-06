@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~15 ~11 ~6 spruce_stairs ["weirdo_direction"=2,"upside_down_bit"
 # saw floor opening toward the water side
 fill ~0 ~1 ~6 ~0 ~4 ~9 air
 
-say [build] Sawmill T1 shell placed. Decorate away.
+say Sawmill T1 shell placed. Decorate away.

@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~13 ~11 ~6 oak_stairs ["weirdo_direction"=2,"upside_down_bit"=fa
 # stockroom hatch in the back wall
 fill ~2 ~1 ~10 ~3 ~3 ~10 air
 
-say [build] General Store T1 shell placed. Decorate away.
+say General Store T1 shell placed. Decorate away.

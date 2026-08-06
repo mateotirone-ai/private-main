@@ -65,7 +65,7 @@ fill ~-1 ~10 ~5 ~11 ~10 ~5 spruce_stairs ["weirdo_direction"=2,"upside_down_bit"
 
 # trade features
 # oven chimney
-fill ~8 ~6 ~7 ~8 ~11 ~7 bricks
+fill ~8 ~6 ~7 ~8 ~11 ~7 brick_block
 fill ~8 ~6 ~7 ~8 ~10 ~7 air
 
-say [build] Bakery T1 shell placed. Decorate away.
+say Bakery T1 shell placed. Decorate away.

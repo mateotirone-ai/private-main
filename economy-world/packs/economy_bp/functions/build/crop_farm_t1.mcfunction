@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~15 ~11 ~6 oak_stairs ["weirdo_direction"=2,"upside_down_bit"=fa
 # barn doors on the back wall
 fill ~6 ~1 ~10 ~8 ~4 ~10 air
 
-say [build] Crop Farm T1 shell placed. Decorate away.
+say Crop Farm T1 shell placed. Decorate away.

@@ -73,4 +73,4 @@ fill ~-1 ~11 ~6 ~13 ~11 ~6 stone_brick_stairs ["weirdo_direction"=2,"upside_down
 # ore-cart bay opening in the back wall
 fill ~9 ~1 ~10 ~11 ~3 ~10 air
 
-say [build] Stone Quarry T1 shell placed. Decorate away.
+say Stone Quarry T1 shell placed. Decorate away.

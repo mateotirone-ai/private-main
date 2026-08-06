@@ -10,7 +10,7 @@ fill ~-1 ~-1 ~-1 ~13 ~-1 ~13 blackstone
 fill ~0 ~0 ~0 ~12 ~0 ~12 blackstone
 
 # walls
-fill ~0 ~1 ~0 ~12 ~6 ~12 bricks
+fill ~0 ~1 ~0 ~12 ~6 ~12 brick_block
 fill ~1 ~1 ~1 ~11 ~6 ~11 air
 
 # corner posts
@@ -42,7 +42,7 @@ fill ~0 ~2 ~8 ~0 ~3 ~8 glass_pane
 fill ~12 ~2 ~8 ~12 ~3 ~8 glass_pane
 
 # front-of-house / back-of-house partition
-fill ~1 ~1 ~5 ~11 ~5 ~5 bricks
+fill ~1 ~1 ~5 ~11 ~5 ~5 brick_block
 fill ~6 ~1 ~5 ~6 ~3 ~5 air
 
 # roof
@@ -75,7 +75,7 @@ fill ~-1 ~13 ~7 ~13 ~13 ~7 brick_stairs ["weirdo_direction"=2,"upside_down_bit"=
 
 # trade features
 # chimney stack
-fill ~9 ~7 ~9 ~10 ~13 ~10 bricks
+fill ~9 ~7 ~9 ~10 ~13 ~10 brick_block
 fill ~9 ~7 ~9 ~10 ~12 ~10 air
 
-say [build] Smeltery T1 shell placed. Decorate away.
+say Smeltery T1 shell placed. Decorate away.
