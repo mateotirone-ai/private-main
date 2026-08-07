@@ -36,6 +36,9 @@ export interface BizSnap {
         startedTick: number;
         completeTick: number;
         cost: number;
+        placedLayers: number;
+        siteClosed: boolean;
+        dressingPlaced: boolean;
       }
     | null;
 }
@@ -76,13 +79,20 @@ export function businessDisplayName(
     : `${name} — owned by ${business.ownerName ?? "a player"}`;
 }
 
+export function businessIsOpen(
+  business: Pick<BizSnap, "construction">
+): boolean {
+  return business.construction === null;
+}
+
 /** Pure CPU production step. Returns units added. */
 export function produceOnce(
   biz: BizSnap,
   def: TradeDef = tradeDef(biz.trade),
-  multiplier = 1
+  multiplier = 1,
+  storageCap = def.storageCap
 ): number {
-  const room = Math.max(0, def.storageCap - biz.storage);
+  const room = Math.max(0, storageCap - biz.storage);
   const exact = def.producePerTick * multiplier + (biz.productionRemainder ?? 0);
   const whole = Math.floor(exact);
   const add = Math.min(whole, room);
@@ -109,7 +119,8 @@ export function runCpuProduction(
     activeOwnerMultiplier: 1,
     offlineEmployeeStep: 0,
     offlineEmployeeCap: 1,
-  }
+  },
+  storageMultiplier: (biz: BizSnap) => number = () => 1
 ): ProductionResult[] {
   const out: ProductionResult[] = [];
   for (const biz of Object.values(byId)) {
@@ -121,7 +132,11 @@ export function runCpuProduction(
         multipliers,
         Math.max(0, biz.employeeSlots.length)
       ) * bizMultiplier(biz);
-    const added = produceOnce(biz, def, multiplier);
+    const storageCap = Math.max(
+      1,
+      Math.floor(def.storageCap * storageMultiplier(biz))
+    );
+    const added = produceOnce(biz, def, multiplier, storageCap);
     if (added > 0) out.push({ trade: biz.trade, good: def.good, added });
   }
   return out;

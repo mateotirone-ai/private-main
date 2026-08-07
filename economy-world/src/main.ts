@@ -5,7 +5,7 @@
  * Early-execution rule (Bedrock 1.26+): no world touches at module top-level.
  * All boot + world event subscriptions run inside system.run(...).
  */
-import { world, system } from "@minecraft/server";
+import { ItemStack, world, system } from "@minecraft/server";
 import type { Player } from "@minecraft/server";
 import { emptyLedger, audit, mint, type LedgerState } from "./core/ledger";
 import { saveBlob, loadBlob } from "./core/state";
@@ -43,7 +43,9 @@ import { tradeDef } from "./content/trades";
 import { clearSpeakerContext, speakAs, withNpcSpeaker } from "./ui/feedback";
 import {
   clockOut,
+  forceClockOutBusiness,
   loadEmployment,
+  openBusinessOffice,
   openJobBoard,
   type EmploymentState,
 } from "./systems/employment";
@@ -51,7 +53,6 @@ import { reclaimCompanyTools } from "./systems/companyTools";
 import { clearActionbar, clearPlayerUiState } from "./ui/toast";
 import {
   loadExtraction,
-  registerPlayerZone,
   startExtractionSystem,
   type ExtractionState,
 } from "./systems/extraction";
@@ -69,10 +70,20 @@ import {
   startServiceJob,
   type ServiceState,
 } from "./systems/service";
-import { seedTown } from "./systems/town";
-import { placeBusinessStructure } from "./systems/structurePlacement";
+import {
+  placeBusinessStructure,
+  reloadBusinessStructure,
+} from "./systems/structurePlacement";
+import {
+  BUILDERS_CATALOG_ITEM,
+  clearCatalogPlayerState,
+  openBuilderCatalog,
+  tryPlaceFromCatalogTap,
+  undoLastCatalogPlacement,
+} from "./systems/builderCatalog";
 import {
   openOwnershipPanel,
+  setConstructionCloseHook,
   setSuccessorSpawnHook,
   startOwnershipJobs,
 } from "./systems/ownership";
@@ -251,9 +262,34 @@ function boot(): void {
   startServiceJob(serviceState, bizState, employmentState);
   startHudJob();
   setSuccessorSpawnHook((payload) => {
+    const successor = bizState.byId[payload.successorId];
+    if (successor?.site) {
+      reloadBusinessStructure(successor);
+    }
     console.log(
       `[ew] successor ready ${payload.successorId} from ${payload.predecessorId} (${payload.trade}) offset ${payload.offset.x},${payload.offset.y},${payload.offset.z}`
     );
+  });
+  setConstructionCloseHook((businessId) => {
+    const closed = forceClockOutBusiness(
+      employmentState,
+      businessId,
+      currentTick(),
+      ledger
+    );
+    for (const entry of closed) {
+      const player = world
+        .getAllPlayers()
+        .find((candidate) => candidate.id === entry.playerId);
+      if (!player) continue;
+      if (entry.result.settled) {
+        reclaimCompanyTools(player, "clockOut");
+        clearActionbar(player, "employment");
+      }
+      if (entry.result.paid > 0) {
+        noteOnboardingPaycheck(player);
+      }
+    }
   });
   startOwnershipJobs(bizState);
 
@@ -333,26 +369,8 @@ function boot(): void {
           break;
         case "zone":
         case "publiczone": {
-          if (!player) break;
-          const trade = command.argument!;
-          const businessId = `cpu_${trade}`;
-          if (
-            !bizState.byId[businessId] ||
-            tradeDef(trade).kind !== "extraction"
-          ) {
-            world.sendMessage(`§c[dev] unknown work-zone trade: ${trade}`);
-            break;
-          }
-          const publicZone = command.id === "publiczone";
-          registerPlayerZone(
-            extractionState,
-            player,
-            businessId,
-            trade,
-            publicZone
-          );
           world.sendMessage(
-            `§a[dev] stamped ${publicZone ? "public" : "employee"} test pit for ${trade}`
+            "§e[dev] zone/publiczone stamp commands are deprecated. Use /scriptevent ew:dev place <trade>."
           );
           break;
         }
@@ -413,21 +431,9 @@ function boot(): void {
           break;
         }
         case "seedtown": {
-          if (!player) break;
-          try {
-            const seeded = seedTown(
-              player,
-              extractionState,
-              serviceState,
-              bizState,
-              command.argument
-            );
-            world.sendMessage(
-              `§a[dev] seeded town ${seeded.townId}: ${seeded.hostCount} hosts, ${seeded.zoneCount} zones`
-            );
-          } catch (error) {
-            world.sendMessage(`§c[dev] seedtown failed: ${error}`);
-          }
+          world.sendMessage(
+            "§e[dev] seedtown legacy host-line stamping is gated for structure-registry migration."
+          );
           break;
         }
         case "place": {
@@ -444,6 +450,29 @@ function boot(): void {
             );
           } catch (error) {
             world.sendMessage(`§c[dev] place failed: ${error}`);
+          }
+          break;
+        }
+        case "catalog": {
+          if (!player) break;
+          void openBuilderCatalog(player);
+          break;
+        }
+        case "givecatalog": {
+          if (!player) break;
+          const inv = player.getComponent("inventory")?.container;
+          if (!inv || inv.emptySlotsCount <= 0) {
+            world.sendMessage("§c[dev] free one inventory slot first");
+            break;
+          }
+          inv.addItem(new ItemStack(BUILDERS_CATALOG_ITEM, 1));
+          world.sendMessage("§a[dev] Builder's Catalog granted");
+          break;
+        }
+        case "undo": {
+          if (!player) break;
+          if (!undoLastCatalogPlacement(player)) {
+            world.sendMessage("§e[dev] no catalog placement to undo");
           }
           break;
         }
@@ -549,6 +578,26 @@ function boot(): void {
           )
       );
     } else {
+      const taggedBusinessId = tags
+        .find((tag) => tag.startsWith("ew:biz_"))
+        ?.slice("ew:biz_".length);
+      const taggedBusiness = taggedBusinessId
+        ? bizState.byId[taggedBusinessId]
+        : undefined;
+      if (taggedBusiness?.construction) {
+        ev.cancel = true;
+        const player = ev.player;
+        const speaker =
+          ev.target.nameTag || `${tradeDef(taggedBusiness.trade).name} Clerk`;
+        system.run(() =>
+          speakAs(
+            player,
+            speaker,
+            `${tradeDef(taggedBusiness.trade).name} is closed for renovation.`
+          )
+        );
+        return;
+      }
       const stationTag = tags.find((t) => t.startsWith("ew:station_"));
       if (stationTag) {
         ev.cancel = true;
@@ -623,8 +672,6 @@ function boot(): void {
         if (!business) return;
         const player = ev.player;
         const speaker = ev.target.nameTag || `${tradeDef(business.trade).name} Office`;
-        const activeSession = employmentState.sessions[player.id];
-        const isClockedHere = activeSession?.businessId === business.id;
         speakNpcPrelude(player, speaker, tags, "jobs", business.trade);
         system.run(
           () =>
@@ -638,10 +685,13 @@ function boot(): void {
                   business.id
                 );
               }
-              if (isClockedHere) {
-                return openJobBoard(player, ledger, bizState, employmentState);
-              }
-              return openJobBoard(player, ledger, bizState, employmentState);
+              return openBusinessOffice(
+                player,
+                ledger,
+                bizState,
+                employmentState,
+                business.id
+              );
             })
         );
         return;
@@ -700,6 +750,27 @@ function boot(): void {
   // Use-item on wallet opens pack/unpack hub
   world.afterEvents.itemUse.subscribe((ev) => {
     if (ev.itemStack.typeId === "ew:wallet") void openWallet(ev.source);
+    if (ev.itemStack.typeId === BUILDERS_CATALOG_ITEM) {
+      void openBuilderCatalog(ev.source);
+    }
+  });
+  world.beforeEvents.playerInteractWithBlock.subscribe((ev) => {
+    if (
+      !ev.isFirstEvent ||
+      ev.itemStack?.typeId !== BUILDERS_CATALOG_ITEM
+    ) {
+      return;
+    }
+    ev.cancel = true;
+    const blockLocation = ev.block.location;
+    system.run(() => {
+      tryPlaceFromCatalogTap(
+        ev.player,
+        blockLocation,
+        bizState,
+        extractionState
+      );
+    });
   });
   world.afterEvents.itemCompleteUse.subscribe((ev) => {
     noteCompletedFoodUse(
@@ -751,6 +822,7 @@ function boot(): void {
   world.afterEvents.playerLeave.subscribe((ev) => {
     clearPlayerUiState(ev.playerId);
     clearSpeakerContext(ev.playerId);
+    clearCatalogPlayerState(ev.playerId);
   });
 
   const tradeNames = listCpuBusinesses(bizState)

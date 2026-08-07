@@ -22,11 +22,13 @@ import { countItem, takeItems, giveItem } from "./cash";
 import {
   type BusinessesState,
   type Business,
+  businessStorageCap,
   bizAccount,
   ensureBizFloat,
   effectiveBusinessUnitPrice,
   saveBusinesses,
 } from "./businesses";
+import { businessIsOpen } from "./businessMath";
 import { currentUnitPrice, adjustStock, savePrices, type PricesState } from "./pricing";
 import { freelancePayout } from "./pricingMath";
 import { playerAccount } from "./bank";
@@ -70,6 +72,10 @@ export async function openStorefront(
   const biz = bizState.byId[bizId];
   if (!biz) {
     feedback(player, Voice.error, "error");
+    return;
+  }
+  if (!businessIsOpen(biz)) {
+    feedback(player, `${tradeDef(biz.trade).name} is closed for renovation.`, "caution");
     return;
   }
   const def = tradeDef(biz.trade);
@@ -126,6 +132,10 @@ async function buyFlow(
   prices: PricesState,
   biz: Business
 ): Promise<void> {
+  if (!businessIsOpen(biz)) {
+    feedback(player, `${tradeDef(biz.trade).name} is closed for renovation.`, "caution");
+    return;
+  }
   const def = tradeDef(biz.trade);
   if (biz.storage <= 0) {
     feedback(player, Voice.shopEmpty, "caution");
@@ -171,6 +181,10 @@ async function confirmBuy(
 ): Promise<void> {
   const def = tradeDef(biz.trade);
   const live = bizState.byId[biz.id]!;
+  if (!businessIsOpen(live)) {
+    feedback(player, `${tradeDef(biz.trade).name} is closed for renovation.`, "caution");
+    return;
+  }
   if (live.storage < qty) {
     feedback(player, Voice.shopEmpty, "caution");
     return;
@@ -199,7 +213,11 @@ async function confirmBuy(
   });
   if (!ok) return;
   const settled = bizState.byId[biz.id];
-  if (!settled || settled.storage < qty) {
+  if (!settled || !businessIsOpen(settled)) {
+    feedback(player, `${tradeDef(biz.trade).name} is closed for renovation.`, "caution");
+    return;
+  }
+  if (settled.storage < qty) {
     feedback(player, Voice.shopEmpty, "caution");
     return;
   }
@@ -246,6 +264,10 @@ async function sellFlow(
   prices: PricesState,
   biz: Business
 ): Promise<void> {
+  if (!businessIsOpen(biz)) {
+    feedback(player, `${tradeDef(biz.trade).name} is closed for renovation.`, "caution");
+    return;
+  }
   const def = tradeDef(biz.trade);
   const qty = countItem(player, def.item);
   if (qty <= 0) {
@@ -294,6 +316,10 @@ async function sellFlow(
   let paid = false;
   try {
     const live = bizState.byId[biz.id]!;
+    if (!businessIsOpen(live)) {
+      feedback(player, `${tradeDef(biz.trade).name} is closed for renovation.`, "caution");
+      return;
+    }
     ensureBizFloat(ledger, biz.id, payout);
     const available = balance(ledger, businessAccount);
     if (available < payout) {
@@ -323,7 +349,7 @@ async function sellFlow(
       "shop:freelance"
     );
     paid = true;
-    const room = Math.max(0, def.storageCap - live.storage);
+    const room = Math.max(0, businessStorageCap(live) - live.storage);
     const stored = Math.min(taken, room);
     live.storage += stored;
     adjustStock(prices, def.good, stored);

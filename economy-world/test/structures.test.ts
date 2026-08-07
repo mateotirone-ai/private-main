@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { structureTierDef, structureTradeDef } from "../src/content/structures";
+import {
+  allStructures,
+  structureForTradeLevel,
+  successorOffsetForTrade,
+} from "../src/content/structures";
 
 describe("structure registry", () => {
-  it("declares front face and tiers for stone quarry", () => {
-    const trade = structureTradeDef("stone_quarry");
-    expect(trade).toBeTruthy();
-    expect(trade?.frontFace).toBe("south");
-    expect(trade?.pad).toEqual({ x: 34, z: 28 });
-    expect(structureTierDef("stone_quarry", 1)?.id).toBe("ew:stone_quarry_t1");
-    expect(structureTierDef("stone_quarry", 2)?.id).toBe("ew:stone_quarry_t2");
-    expect(structureTierDef("stone_quarry", 3)?.id).toBe("ew:stone_quarry_t3");
+  it("declares quarry structures with ids, pads, and anchors", () => {
+    expect(allStructures().length).toBeGreaterThan(0);
+    expect(structureForTradeLevel("stone_quarry", 1)?.id).toBe("ew:stone_quarry_L1");
+    expect(structureForTradeLevel("stone_quarry", 2)?.id).toBe("ew:stone_quarry_L2");
+    expect(structureForTradeLevel("stone_quarry", 3)?.id).toBe("ew:stone_quarry_L3");
+    expect(structureForTradeLevel("stone_quarry", 1)?.padSize).toEqual({ x: 34, z: 28 });
+    expect(structureForTradeLevel("stone_quarry", 1)?.npcAnchors.storefront).toEqual({
+      offset: { x: 17, y: 1, z: 24 },
+      role: "storefront",
+      tags: [],
+    });
+  });
+
+  it("reads successor spacing from per-trade config", () => {
+    expect(successorOffsetForTrade("stone_quarry")).toEqual({ x: 40, y: 0, z: 0 });
   });
 });

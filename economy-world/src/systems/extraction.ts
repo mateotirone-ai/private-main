@@ -18,7 +18,11 @@ import { extractionDef } from "../content/work";
 import { tradeDef } from "../content/trades";
 import { setActionbarContext } from "../ui/toast";
 import { speakAs } from "../ui/feedback";
-import { saveBusinesses, type BusinessesState } from "./businesses";
+import {
+  businessStorageCap,
+  saveBusinesses,
+  type BusinessesState,
+} from "./businesses";
 import {
   employmentSession,
   recordEmployeeOutput,
@@ -200,6 +204,17 @@ export function startExtractionSystem(
     if (!zone) return;
     const business = businesses.byId[zone.businessId];
     if (!business) return;
+    if (business.construction && !zone.public) {
+      cancel();
+      system.run(() =>
+        speakAs(
+          player,
+          tradeDef(node.trade).name,
+          "The site is closed for renovation."
+        )
+      );
+      return;
+    }
     const session = employmentSession(employment, player.id);
     const access = registeredNodeAccess(
       true,
@@ -232,7 +247,7 @@ export function startExtractionSystem(
 
     const def = tradeDef(node.trade);
     const employed = !zone.public && session?.businessId === business.id;
-    if (employed && business.storage >= def.storageCap) {
+    if (employed && business.storage >= businessStorageCap(business)) {
       node.pendingHarvest = false;
       system.run(() =>
         speakAs(player, def.name, "Business storage is full. Come back after stock moves.")

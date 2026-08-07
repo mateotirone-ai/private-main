@@ -21,6 +21,9 @@ export type DevCommandId =
   | "owner"
   | "need"
   | "place"
+  | "catalog"
+  | "givecatalog"
+  | "undo"
   | "seedtown";
 
 export interface DevCommandSpec {
@@ -56,6 +59,9 @@ export const DEV_COMMANDS: readonly DevCommandSpec[] = [
   { id: "service", phase: "D", usage: "service <trade>", description: "Open a service host", argument: "trade" },
   { id: "need", phase: "D", usage: "need <trade>", description: "Force one customer need", argument: "trade" },
   { id: "place", phase: "G", usage: "place <trade>", description: "Place T1 structure + hosts for a trade", argument: "trade" },
+  { id: "catalog", phase: "G", usage: "catalog", description: "Open the Builder's Catalog" },
+  { id: "givecatalog", phase: "G", usage: "givecatalog", description: "Grant Builder's Catalog item" },
+  { id: "undo", phase: "G", usage: "undo", description: "Undo last Builder's Catalog placement" },
   { id: "owner", phase: "E", usage: "owner <trade|businessId>", description: "Open buyout or owner management", argument: "target" },
   {
     id: "seedtown",

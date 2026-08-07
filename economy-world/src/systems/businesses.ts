@@ -13,12 +13,13 @@ import {
   runCpuProduction as runCpuProductionPure,
   type BizSnap,
 } from "./businessMath";
+import { tierCapacity } from "./constructionMath";
 
 export type Business = BizSnap;
 export { produceOnce };
 
 export interface BusinessesState {
-  schema: 3;
+  schema: 4;
   byId: Record<string, Business>;
 }
 
@@ -29,7 +30,7 @@ export function bizAccount(bizId: string): AccountId {
 }
 
 export function emptyBusinesses(): BusinessesState {
-  return { schema: 3, byId: seedCpuBusinesses() };
+  return { schema: 4, byId: seedCpuBusinesses() };
 }
 
 function ensureBusinessDefaults(business: Business): void {
@@ -45,12 +46,17 @@ function ensureBusinessDefaults(business: Business): void {
   business.successorOf ??= null;
   business.site ??= null;
   business.construction ??= null;
+  if (business.construction) {
+    business.construction.placedLayers ??= 0;
+    business.construction.siteClosed ??= false;
+    business.construction.dressingPlaced ??= false;
+  }
 }
 
 export function loadBusinesses(): BusinessesState {
   const s = loadBlob<BusinessesState>(KEY);
   if (!s) return emptyBusinesses();
-  s.schema = 3;
+  s.schema = 4;
   for (const business of Object.values(s.byId)) ensureBusinessDefaults(business);
   for (const trade of allTradeIds()) {
     const id = `cpu_${trade}`;
@@ -90,16 +96,39 @@ export function runCpuProduction(
   activeOwnerIds: ReadonlySet<string> = new Set()
 ): void {
   const tierMultiplier = (biz: Business): number => {
+    if (biz.construction) return 0;
     const cfg = matrix.ownership?.tierOutputMultiplierByTier?.[String(biz.tier)];
+    return cfg ?? 1;
+  };
+  const storageMultiplier = (biz: Business): number => {
+    const cfg =
+      matrix.ownership?.tierStorageMultiplierByTier?.[String(biz.tier)];
     return cfg ?? 1;
   };
   const results = runCpuProductionPure(
     s.byId,
     activeOwnerIds,
     tierMultiplier,
-    matrix.work.employment
+    matrix.work.employment,
+    storageMultiplier
   );
   for (const r of results) adjustStock(prices, r.good, r.added);
+}
+
+export function businessStorageCap(business: Business): number {
+  const multiplier =
+    matrix.ownership.tierStorageMultiplierByTier[String(business.tier)] ?? 1;
+  return tierCapacity(tradeDef(business.trade).storageCap, multiplier);
+}
+
+export function businessEmployeeSlotCap(business: Business): number {
+  const multiplier =
+    matrix.ownership.tierEmployeeSlotMultiplierByTier[String(business.tier)] ??
+    1;
+  return tierCapacity(
+    matrix.ownership.management.maxEmployeeSlots,
+    multiplier
+  );
 }
 
 /** Ensure a CPU business can pay `amount` — mint:system float if needed. */

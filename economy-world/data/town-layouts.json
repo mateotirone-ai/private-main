@@ -1,0 +1,392 @@
+{
+ "_notes": "Layout 01 from the approved preview. Local coords, origin NW, x east / z south. Streets are polylines - never straighten. Slots are roles; biome decides trades; no capture = slot stays empty.",
+ "layouts": [
+  {
+   "id": "heartlands_crossroads",
+   "name": "Heartlands Crossroads",
+   "biomes": [
+    "plains",
+    "heartlands"
+   ],
+   "area": [
+    150,
+    112
+   ],
+   "slopeToleranceY": 6,
+   "streets": {
+    "main": {
+     "width": 4,
+     "points": [
+      [
+       6,
+       62
+      ],
+      [
+       48,
+       60
+      ],
+      [
+       88,
+       54
+      ],
+      [
+       120,
+       47
+      ]
+     ]
+    },
+    "lanes": [
+     {
+      "width": 3,
+      "points": [
+       [
+        62,
+        56
+       ],
+       [
+        65,
+        42
+       ],
+       [
+        67,
+        28
+       ]
+      ]
+     },
+     {
+      "width": 3,
+      "points": [
+       [
+        40,
+        61
+       ],
+       [
+        36,
+        74
+       ],
+       [
+        34,
+        86
+       ]
+      ]
+     }
+    ],
+    "plaza": {
+     "center": [
+      66,
+      52
+     ],
+     "radii": [
+      13,
+      9
+     ]
+    },
+    "well": [
+     64,
+     50
+    ],
+    "bridge": {
+     "x": [
+      32,
+      35
+     ],
+     "z": [
+      86,
+      95
+     ]
+    }
+   },
+   "growthPoints": [
+    {
+     "at": [
+      3,
+      62
+     ],
+     "dir": "west"
+    },
+    {
+     "at": [
+      67,
+      26
+     ],
+     "dir": "north"
+    },
+    {
+     "at": [
+      34,
+      88
+     ],
+     "dir": "south",
+     "note": "across the stream - bridge district"
+    },
+    {
+     "at": [
+      146,
+      45
+     ],
+     "dir": "east"
+    }
+   ],
+   "slots": [
+    {
+     "role": "work_site",
+     "hint": "large-pad trade (west anchor)",
+     "pad": [
+      2,
+      38,
+      20,
+      58
+     ],
+     "at": [
+      3,
+      41
+     ],
+     "rot": 180
+    },
+    {
+     "role": "civic",
+     "hint": "church",
+     "pad": [
+      22,
+      34,
+      39,
+      58
+     ],
+     "at": [
+      24,
+      36
+     ],
+     "rot": 180
+    },
+    {
+     "role": "civic",
+     "hint": "bank",
+     "pad": [
+      41,
+      43,
+      53,
+      57
+     ],
+     "at": [
+      42,
+      44
+     ],
+     "rot": 180
+    },
+    {
+     "role": "civic",
+     "hint": "town_hall (required)",
+     "pad": [
+      67,
+      21,
+      88,
+      40
+     ],
+     "at": [
+      68,
+      23
+     ],
+     "rot": 180
+    },
+    {
+     "role": "storefront",
+     "hint": "general_store",
+     "pad": [
+      80,
+      40,
+      93,
+      53
+     ],
+     "at": [
+      81,
+      41
+     ],
+     "rot": 180
+    },
+    {
+     "role": "civic",
+     "hint": "real_estate",
+     "pad": [
+      95,
+      34,
+      112,
+      50
+     ],
+     "at": [
+      97,
+      36
+     ],
+     "rot": 180
+    },
+    {
+     "role": "kiosk",
+     "hint": "jobs_board",
+     "pad": [
+      75,
+      44,
+      79,
+      49
+     ],
+     "at": [
+      75,
+      44
+     ],
+     "rot": 0
+    },
+    {
+     "role": "storefront",
+     "hint": "bakery",
+     "pad": [
+      7,
+      65,
+      21,
+      78
+     ],
+     "at": [
+      9,
+      67
+     ],
+     "rot": 0
+    },
+    {
+     "role": "civic",
+     "hint": "dealer",
+     "pad": [
+      44,
+      64,
+      60,
+      78
+     ],
+     "at": [
+      46,
+      66
+     ],
+     "rot": 0
+    },
+    {
+     "role": "house",
+     "pad": [
+      23,
+      64,
+      32,
+      74
+     ],
+     "at": [
+      24,
+      66
+     ],
+     "rot": 0
+    },
+    {
+     "role": "house",
+     "pad": [
+      62,
+      63,
+      72,
+      73
+     ],
+     "at": [
+      63,
+      65
+     ],
+     "rot": 0
+    },
+    {
+     "role": "house",
+     "pad": [
+      74,
+      62,
+      84,
+      72
+     ],
+     "at": [
+      75,
+      64
+     ],
+     "rot": 0
+    },
+    {
+     "role": "house",
+     "pad": [
+      86,
+      60,
+      96,
+      70
+     ],
+     "at": [
+      87,
+      62
+     ],
+     "rot": 0
+    },
+    {
+     "role": "house",
+     "pad": [
+      45,
+      22,
+      62,
+      39
+     ],
+     "at": [
+      47,
+      25
+     ],
+     "rot": 180
+    },
+    {
+     "role": "work_site",
+     "hint": "crop_farm + wrapping fields (east anchor)",
+     "pad": [
+      118,
+      37,
+      141,
+      56
+     ],
+     "at": [
+      120,
+      40
+     ],
+     "rot": 0,
+     "fields": {
+      "x": [
+       122,
+       146
+      ],
+      "z": [
+       30,
+       72
+      ],
+      "rowSpacing": 3
+     }
+    },
+    {
+     "role": "parcel_empty",
+     "pad": [
+      91,
+      22,
+      101,
+      32
+     ]
+    },
+    {
+     "role": "parcel_empty",
+     "pad": [
+      98,
+      58,
+      108,
+      70
+     ]
+    },
+    {
+     "role": "commons",
+     "pad": [
+      24,
+      77,
+      36,
+      86
+     ]
+    }
+   ]
+  }
+ ]
+}

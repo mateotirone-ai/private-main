@@ -20,6 +20,7 @@ import {
   saveBusinesses,
   type BusinessesState,
 } from "./businesses";
+import { businessIsOpen } from "./businessMath";
 import {
   employmentSession,
   EmploymentSession,
@@ -227,6 +228,10 @@ export function spawnServiceNeeds(
       storefrontBusinessForTrade(businesses, host.trade)?.id ?? `cpu_${host.trade}`;
   }
   for (const host of Object.values(state.hosts)) {
+    const business = host.businessId
+      ? businesses.byId[host.businessId]
+      : undefined;
+    if (business && !businessIsOpen(business)) continue;
     if (state.requests[host.id]) continue;
     const request = createCustomerRequest(
       host,
@@ -299,6 +304,14 @@ export async function openServiceCustomer(
     feedback(player, "No customer is waiting.", "info");
     return;
   }
+  if (!businessIsOpen(business)) {
+    feedback(
+      player,
+      `${tradeDef(business.trade).name} is closed for renovation.`,
+      "caution"
+    );
+    return;
+  }
   if (
     !claimCustomerNeed(service.claims, service.requests, hostId, player.id, currentTick())
   ) {
@@ -354,6 +367,16 @@ export async function openServiceCustomer(
     releaseCustomerNeedClaim(service.claims, hostId, player.id);
     saveService(service);
     feedback(player, "That customer was already handled.", "caution");
+    return;
+  }
+  if (!businessIsOpen(liveBusiness)) {
+    releaseCustomerNeedClaim(service.claims, hostId, player.id);
+    saveService(service);
+    feedback(
+      player,
+      `${tradeDef(liveBusiness.trade).name} is closed for renovation.`,
+      "caution"
+    );
     return;
   }
   if (liveBusiness.storage < liveRequest.qty) {

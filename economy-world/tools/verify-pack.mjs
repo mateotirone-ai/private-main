@@ -37,6 +37,8 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+const structuresRegistry = json(resolve(root, "data/structures.json"));
+
 const bpManifest = json(resolve(bp, "manifest.json"));
 const rpManifest = json(resolve(rp, "manifest.json"));
 const bpModuleTypes = new Set(bpManifest.modules.map((module) => module.type));
@@ -73,15 +75,39 @@ assert(
   `compiled main.js is not Phase ${expectedPhase}`
 );
 
+const structuresDir = resolve(bp, "structures/ew");
+assert(existsSync(structuresDir), "BP structures/ew folder is missing");
+for (const entry of structuresRegistry.structures ?? []) {
+  if (!entry?.id) continue;
+  if (JSON.stringify(entry).includes("TODO")) continue;
+  const stem = String(entry.id).includes(":")
+    ? String(entry.id).split(":")[1]
+    : String(entry.id);
+  assert(
+    existsSync(resolve(structuresDir, `${stem}.mcstructure`)),
+    `missing structure asset for ${entry.id}`
+  );
+}
+
 const itemAtlas = json(resolve(rp, "textures/item_texture.json"));
 const walletTexture = itemAtlas.texture_data?.ew_wallet?.textures;
+const catalogTexture = itemAtlas.texture_data?.ew_builders_catalog?.textures;
 assert(walletTexture, "ew_wallet atlas key is missing");
+assert(catalogTexture, "ew_builders_catalog atlas key is missing");
 assert(
   existsSync(resolve(rp, `${walletTexture}.png`)),
   "ew_wallet PNG is missing"
 );
+assert(
+  existsSync(resolve(rp, `${catalogTexture}.png`)),
+  "ew_builders_catalog PNG is missing"
+);
 const textureList = new Set(json(resolve(rp, "textures_list.json")));
 assert(textureList.has(walletTexture), "ew_wallet is absent from textures_list");
+assert(
+  textureList.has(catalogTexture),
+  "ew_builders_catalog is absent from textures_list"
+);
 
 const hud = json(resolve(rp, "ui/hud_screen.json"));
 const hudMerge = hud.root_panel?.modifications?.find(

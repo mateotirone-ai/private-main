@@ -20,10 +20,12 @@ import { balance } from "../core/ledger";
 import type { LedgerState } from "../core/ledger";
 import { playerAccount } from "./bank";
 import {
+  businessStorageCap,
   saveBusinesses,
   storefrontBusinessForTrade,
   type BusinessesState,
 } from "./businesses";
+import { businessIsOpen } from "./businessMath";
 import {
   completeProcessing,
   startProcessing,
@@ -113,6 +115,14 @@ export async function openProcessingStation(
     feedback(player, "Processing businesses are unavailable.", "error");
     return;
   }
+  if (!businessIsOpen(outputBusiness)) {
+    feedback(
+      player,
+      `${tradeDef(outputBusiness.trade).name} is closed for renovation.`,
+      "caution"
+    );
+    return;
+  }
   const personalRaw = countItem(
     player,
     tradeDef(numbers.inputTrade).item
@@ -162,6 +172,14 @@ export async function openProcessingStation(
       {
         label: `Queue batches — max ${maxBatches}`,
         onSelect: async () => {
+          if (!businessIsOpen(outputBusiness)) {
+            feedback(
+              player,
+              `${tradeDef(outputBusiness.trade).name} is closed for renovation.`,
+              "caution"
+            );
+            return;
+          }
           if (maxBatches <= 0) {
             feedback(player, "Not enough business raw stock.", "caution");
             return;
@@ -262,13 +280,14 @@ export function startProcessingJob(
   every("processing:complete", matrix.work.processingSweepTicks, (tick) => {
     let changed = false;
     for (const job of Object.values(state.jobs)) {
+      const business = storefrontBusinessForTrade(businesses, job.trade);
+      if (business && !businessIsOpen(business)) continue;
       const wasComplete = job.complete;
       const output = completeProcessing(job, tick);
       if (output <= 0) continue;
-      const business = storefrontBusinessForTrade(businesses, job.trade);
       const content = processingDef(job.trade);
       if (!business || !content) continue;
-      const cap = tradeDef(job.trade).storageCap;
+      const cap = businessStorageCap(business);
       const stored = Math.min(output, Math.max(0, cap - business.storage));
       job.outputShelvedTotal += stored;
       business.storage += stored;

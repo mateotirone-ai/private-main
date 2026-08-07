@@ -73,6 +73,19 @@ export interface Matrix {
     revenueWindowTicks: number;
     revenueHistoryCap: number;
     tierOutputMultiplierByTier: Record<string, number>;
+    tierStorageMultiplierByTier: Record<string, number>;
+    tierEmployeeSlotMultiplierByTier: Record<string, number>;
+    construction: {
+      sweepTicks: number;
+      scaffoldingHeight: number;
+      scaffoldingMargin: number;
+      scaffoldingBlock: string;
+      materialPiles: Array<{
+        offset: [number, number, number];
+        size: [number, number, number];
+        block: string;
+      }>;
+    };
     evaluation: {
       tierBaseByTier: Record<string, number>;
       inventoryUnitValueFactor: number;

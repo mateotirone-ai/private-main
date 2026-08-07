@@ -14,6 +14,7 @@ import { menuHub, confirmTxn } from "../ui/patterns";
 import { countItem, giveItem, takeItems } from "./cash";
 import {
   type BusinessesState,
+  businessStorageCap,
   bizAccount,
   ensureBizFloat,
   saveBusinesses,
@@ -122,7 +123,7 @@ async function sellAtZone(
       "commons:sell"
     );
     paid = true;
-    const room = Math.max(0, def.storageCap - biz.storage);
+    const room = Math.max(0, businessStorageCap(biz) - biz.storage);
     const stored = Math.min(taken, room);
     biz.storage += stored;
     adjustStock(prices, good, stored);

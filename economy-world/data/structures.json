@@ -1,42 +1,99 @@
 {
-  "_comment": "⚑ Structure pads/frontage/gate offsets are first-pass live-test placeholders; tune per captured build.",
-  "trades": {
-    "stone_quarry": {
-      "frontFace": "south",
-      "pad": { "x": 34, "z": 28 },
-      "successorOffset": { "x": 40, "y": 0, "z": 0 },
-      "tiers": {
-        "1": {
-          "id": "ew:stone_quarry_t1",
-          "anchorOffset": { "x": 0, "y": 0, "z": 0 },
-          "gateOffset": { "x": 17, "y": 0, "z": 29 },
-          "npcOffsets": {
-            "storefront": { "x": 17, "y": 1, "z": 24 },
-            "office": { "x": 14, "y": 1, "z": 20 }
-          },
-          "workZoneOffset": { "x": 17, "y": 0, "z": 8 }
-        },
-        "2": {
-          "id": "ew:stone_quarry_t2",
-          "anchorOffset": { "x": 0, "y": 0, "z": 0 },
-          "gateOffset": { "x": 17, "y": 0, "z": 29 },
-          "npcOffsets": {
-            "storefront": { "x": 17, "y": 1, "z": 24 },
-            "office": { "x": 14, "y": 1, "z": 20 }
-          },
-          "workZoneOffset": { "x": 17, "y": 0, "z": 8 }
-        },
-        "3": {
-          "id": "ew:stone_quarry_t3",
-          "anchorOffset": { "x": 0, "y": 0, "z": 0 },
-          "gateOffset": { "x": 17, "y": 0, "z": 29 },
-          "npcOffsets": {
-            "storefront": { "x": 17, "y": 1, "z": 24 },
-            "office": { "x": 14, "y": 1, "z": 20 }
-          },
-          "workZoneOffset": { "x": 17, "y": 0, "z": 8 }
-        }
+  "_notes": "Starter registry. Ids exact as captured. All flagged values tunable. Missing/TODO anchors must skip-and-warn, never crash.",
+  "structures": [
+    {
+      "id": "ew:stone_quarry_L1",
+      "trade": "stone_quarry",
+      "level": 1,
+      "padSize": [
+        34,
+        28
+      ],
+      "anchor": "front-left-pad-corner",
+      "anchorOffset": [
+        0,
+        0,
+        0
+      ],
+      "front": "south",
+      "gateOffset": [17, 0, 29],
+      "npcAnchors": {
+        "storefront": [17, 1, 24],
+        "office": [14, 1, 20]
+      },
+      "zones": {
+        "work_pit": [2, -2, 2, 31, 12, 25]
       }
+    },
+    {
+      "id": "ew:stone_quarry_L2",
+      "trade": "stone_quarry",
+      "level": 2,
+      "padSize": [
+        34,
+        28
+      ],
+      "anchor": "front-left-pad-corner",
+      "anchorOffset": [
+        0,
+        0,
+        0
+      ],
+      "front": "south",
+      "gateOffset": [17, 0, 29],
+      "npcAnchors": {
+        "storefront": [17, 1, 24],
+        "office": [14, 1, 20]
+      },
+      "zones": {
+        "work_pit": [2, -2, 2, 31, 12, 25]
+      }
+    },
+    {
+      "id": "ew:stone_quarry_L3",
+      "trade": "stone_quarry",
+      "level": 3,
+      "padSize": [
+        34,
+        28
+      ],
+      "anchor": "front-left-pad-corner",
+      "anchorOffset": [
+        0,
+        0,
+        0
+      ],
+      "front": "south",
+      "gateOffset": [17, 0, 29],
+      "npcAnchors": {
+        "storefront": [17, 1, 24],
+        "office": [14, 1, 20]
+      },
+      "zones": {
+        "work_pit": [2, -2, 2, 31, 12, 25]
+      }
+    },
+    {
+      "id": "ew:home_5",
+      "trade": "home",
+      "padSize": [52, 50],
+      "anchor": "front-left-pad-corner",
+      "anchorOffset": [0, 0, 0],
+      "front": "south",
+      "gateOffset": "TODO",
+      "npcAnchors": {}
     }
+  ],
+  "successorOffsetByTrade": {
+    "default": [
+      40,
+      0,
+      0
+    ],
+    "stone_quarry": [
+      40,
+      0,
+      0
+    ]
   }
 }

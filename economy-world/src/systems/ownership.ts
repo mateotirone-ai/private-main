@@ -6,12 +6,14 @@ import { tradeDef } from "../content/trades";
 import { goodConfig } from "../content/prices";
 import { confirmTxn, managePanel, menuHub } from "../ui/patterns";
 import { bareAmount, formatAmount, merids } from "../ui/theme";
-import { feedback } from "../ui/feedback";
+import { feedback, npcSpeechLine, speakAs } from "../ui/feedback";
 import { setActionbarContext } from "../ui/toast";
 import { insufficientFundsMessage } from "../ui/funds";
 import { playerAccount } from "./bank";
 import {
   bizAccount,
+  businessEmployeeSlotCap,
+  businessStorageCap,
   recentRevenueTotal,
   recordBusinessRevenue,
   saveBusinesses,
@@ -37,12 +39,29 @@ import {
   releaseBusinessLock,
   type OwnershipFirsts,
 } from "./ownershipPolicy";
-import { reloadBusinessStructure } from "./structurePlacement";
+import {
+  businessStorefrontClerkName,
+  clearConstructionDressing,
+  despawnBusinessNpcs,
+  placeBusinessStructureLayerBand,
+  placeConstructionDressing,
+  placeFinalBusinessStructure,
+  respawnBusinessNpcs,
+  structureLayerCount,
+  successorSiteFor,
+} from "./structurePlacement";
+import {
+  claimSettlementTierFirst,
+  constructionLayersDue,
+  constructionRemainingTicks,
+  upgradeShortfall,
+} from "./constructionMath";
 
 interface OwnershipState extends OwnershipFirsts {
-  schema: 2;
+  schema: 3;
   firstOwnershipClaimed: boolean;
   firstTierThreeClaimed: boolean;
+  settlementTierFirsts: Record<string, { L2: boolean; L3: boolean }>;
 }
 
 const KEY = "ew:ownership";
@@ -53,6 +72,7 @@ export interface SuccessorSpawnPayload {
   offset: { x: number; y: number; z: number };
 }
 let successorSpawnHook: ((payload: SuccessorSpawnPayload) => void) | undefined;
+let constructionCloseHook: ((businessId: string) => void) | undefined;
 const activeBuyouts = new Map<string, string>();
 
 export function setSuccessorSpawnHook(
@@ -61,12 +81,19 @@ export function setSuccessorSpawnHook(
   successorSpawnHook = hook;
 }
 
+export function setConstructionCloseHook(
+  hook: ((businessId: string) => void) | undefined
+): void {
+  constructionCloseHook = hook;
+}
+
 function loadOwnershipState(): OwnershipState {
   const saved = loadBlob<Partial<OwnershipState>>(KEY);
   return {
-    schema: 2,
+    schema: 3,
     firstOwnershipClaimed: saved?.firstOwnershipClaimed ?? false,
     firstTierThreeClaimed: saved?.firstTierThreeClaimed ?? false,
+    settlementTierFirsts: saved?.settlementTierFirsts ?? {},
   };
 }
 
@@ -124,6 +151,7 @@ function completeBuyout(
   const playerBusinessId = nextPlayerBusinessId(businesses, sourceBusiness.trade, player.id);
   const successorId = nextSuccessorId(businesses, sourceBusiness.trade);
   const seed = Math.floor(tradeDef(sourceBusiness.trade).storageCap / 2);
+  const nextSite = successorSiteFor(sourceBusiness);
   const purchased: Business = {
     ...sourceBusiness,
     id: playerBusinessId,
@@ -144,6 +172,7 @@ function completeBuyout(
     revenueHistory: [],
     employeeSlots: [],
     successorOf: oldId,
+    site: nextSite,
     construction: null,
   };
   delete businesses.byId[oldId];
@@ -153,7 +182,13 @@ function completeBuyout(
     predecessorId: oldId,
     successorId,
     trade: sourceBusiness.trade,
-    offset: matrix.ownership.management.successorSpawnOffset,
+    offset: nextSite
+      ? {
+          x: nextSite.anchor.x - sourceBusiness.site!.anchor.x,
+          y: nextSite.anchor.y - sourceBusiness.site!.anchor.y,
+          z: nextSite.anchor.z - sourceBusiness.site!.anchor.z,
+        }
+      : { x: 0, y: 0, z: 0 },
   });
 }
 
@@ -197,6 +232,37 @@ function formatDurationTicks(ticks: number): string {
   const mins = Math.floor(seconds / 60);
   const rem = seconds % 60;
   return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
+}
+
+export function upgradeFundsDecline(
+  businessName: string,
+  cost: number,
+  available: number
+): string {
+  return `${businessName} can't cover this — ${formatAmount(
+    cost
+  )} needed, ${formatAmount(available)} available. Shortfall: ${formatAmount(
+    upgradeShortfall(cost, available)
+  )} merids.`;
+}
+
+function closeBusinessForRenovation(
+  player: Player | undefined,
+  business: Business
+): void {
+  if (!business.construction) return;
+  const clerk = businessStorefrontClerkName(business);
+  const line = `${tradeDef(business.trade).name} is closing for renovation. We'll reopen at Level ${business.construction.targetTier}.`;
+  if (player) {
+    speakAs(player, clerk, line);
+  } else {
+    world.sendMessage(npcSpeechLine(clerk, line));
+  }
+  constructionCloseHook?.(business.id);
+  despawnBusinessNpcs(business);
+  business.construction.siteClosed = true;
+  placeConstructionDressing(business);
+  business.construction.dressingPlaced = true;
 }
 
 async function settleAuctionWin(
@@ -510,21 +576,26 @@ async function openOwnerManagement(
   const evalValue = businessEvaluation(businesses, business);
   const bizBal = balance(ledger, bizAccount(business.id));
   const construction = business.construction
-    ? `T${business.construction.targetTier} finishes in ${formatDurationTicks(
-        Math.max(0, business.construction.completeTick - currentTick())
-      )}`
+    ? `Target L${business.construction.targetTier} · ${formatDurationTicks(
+        constructionRemainingTicks(
+          business.construction.completeTick,
+          currentTick()
+        )
+      )} remaining · layers ${business.construction.placedLayers}`
     : "None";
   await menuHub(player, {
     title: `${tradeDef(business.trade).name} management`,
     facts: [
       businessDisplayName(business),
-      `Tier: T${business.tier}`,
-      `Storage: ${business.storage}`,
+      `Level: L${business.tier}`,
+      `Storage: ${business.storage}/${businessStorageCap(business)}`,
       `Business balance: ${merids(bizBal)}`,
       `Accrued revenue: ${merids(business.revenueBalance)}`,
       `Evaluation: ${merids(evalValue)}`,
       `Construction: ${construction}`,
-      `Employee slots: ${business.employeeSlots.length}/${matrix.ownership.management.maxEmployeeSlots}`,
+      `Employee slots: ${business.employeeSlots.length}/${businessEmployeeSlotCap(
+        business
+      )}`,
     ],
     narrator: "Ownership is spreadsheets with weather.",
     buttons: [
@@ -604,7 +675,7 @@ async function openOwnerManagement(
         onSelect: () => {
           if (
             business.employeeSlots.length <
-            matrix.ownership.management.maxEmployeeSlots
+            businessEmployeeSlotCap(business)
           ) {
             business.employeeSlots.push(`stub_${business.id}_${business.employeeSlots.length + 1}`);
             feedback(player, "Employee slot added.", "gain");
@@ -616,7 +687,7 @@ async function openOwnerManagement(
         },
       },
       {
-        label: "Upgrade tier",
+        label: "Upgrade level",
         onSelect: async () => {
           if (business.construction) {
             feedback(player, "An upgrade is already under construction.", "caution");
@@ -637,11 +708,33 @@ async function openOwnerManagement(
             feedback(player, "Upgrade tuning is missing for this trade.", "error");
             return;
           }
+          if (!business.site) {
+            feedback(
+              player,
+              "This business has no registered structure site.",
+              "error"
+            );
+            return;
+          }
+          let targetLayers: number | undefined;
+          try {
+            targetLayers = structureLayerCount(business, targetTier);
+          } catch (error) {
+            console.error(`[ew] target structure lookup failed: ${error}`);
+          }
+          if (!targetLayers) {
+            feedback(
+              player,
+              `${tradeDef(business.trade).name} Level ${targetTier} capture is unavailable.`,
+              "error"
+            );
+            return;
+          }
           const available = balance(ledger, bizAccount(business.id));
           if (available < cost) {
             feedback(
               player,
-              insufficientFundsMessage(
+              upgradeFundsDecline(
                 tradeDef(business.trade).name,
                 cost,
                 available
@@ -651,10 +744,11 @@ async function openOwnerManagement(
             return;
           }
           const ok = await confirmTxn(player, {
-            title: `Upgrade to T${targetTier}`,
+            title: `Upgrade to L${targetTier}`,
             facts: [
               `Cost: ${merids(cost)} (business funds)`,
               `Build time: ${formatDurationTicks(duration)}`,
+              `Rise: ${targetLayers} structure layers`,
             ],
             lines: [{ label: "Construction sink", amount: cost, sense: "loss" }],
             balanceBefore: available,
@@ -669,7 +763,7 @@ async function openOwnerManagement(
           if (settlementAvailable < cost) {
             feedback(
               player,
-              insufficientFundsMessage(
+              upgradeFundsDecline(
                 tradeDef(business.trade).name,
                 cost,
                 settlementAvailable
@@ -690,7 +784,7 @@ async function openOwnerManagement(
             if (error instanceof LedgerError) {
               feedback(
                 player,
-                insufficientFundsMessage(
+                upgradeFundsDecline(
                   tradeDef(business.trade).name,
                   cost,
                   balance(ledger, bizAccount(business.id))
@@ -706,22 +800,33 @@ async function openOwnerManagement(
             startedTick: currentTick(),
             completeTick: currentTick() + duration,
             cost,
+            placedLayers: 0,
+            siteClosed: false,
+            dressingPlaced: false,
           };
+          saveBusinesses(businesses);
+          try {
+            closeBusinessForRenovation(player, business);
+          } catch (error) {
+            console.error(
+              `[ew] construction site setup deferred for ${business.id}: ${error}`
+            );
+          }
           saveBusinesses(businesses);
           noteDialogueEvent({
             kind: "construction",
-            summary: `${tradeDef(business.trade).name} started a T${targetTier} upgrade`,
+            summary: `${tradeDef(business.trade).name} started an L${targetTier} upgrade`,
             tick: currentTick(),
             trade: business.trade,
           });
           setActionbarContext(
             player,
             "construction",
-            `${tradeDef(business.trade).name} · T${targetTier} construction`,
+            `${tradeDef(business.trade).name} · L${targetTier} construction`,
             "caution",
             business.construction.completeTick
           );
-          feedback(player, `Upgrade started: T${targetTier}.`, "gain");
+          feedback(player, `Upgrade started: L${targetTier}.`, "gain");
         },
       },
     ],
@@ -754,34 +859,101 @@ export async function openOwnershipPanel(
 }
 
 export function startOwnershipJobs(businesses: BusinessesState): void {
-  every("ownership:upgrades", 20, () => {
+  every(
+    "ownership:upgrades",
+    matrix.ownership.construction.sweepTicks,
+    () => {
     let changed = false;
+    const now = currentTick();
     for (const business of Object.values(businesses.byId)) {
-      if (!business.construction) continue;
-      if (currentTick() < business.construction.completeTick) continue;
-      const completedTier = business.construction.targetTier;
-      business.tier = business.construction.targetTier;
-      business.construction = null;
-      reloadBusinessStructure(business);
-      noteDialogueEvent({
-        kind: "construction",
-        summary: `${tradeDef(business.trade).name} completed its T${completedTier} upgrade`,
-        tick: currentTick(),
-        trade: business.trade,
-      });
-      if (completedTier === 3) {
+      const construction = business.construction;
+      if (!construction) continue;
+      try {
+        if (!construction.siteClosed || !construction.dressingPlaced) {
+          closeBusinessForRenovation(undefined, business);
+          changed = true;
+        }
+        const totalLayers = structureLayerCount(
+          business,
+          construction.targetTier
+        );
+        if (!totalLayers) {
+          console.warn(
+            `[ew] construction paused for ${business.id}; target structure unavailable`
+          );
+          continue;
+        }
+        const layersDue = constructionLayersDue(
+          construction,
+          now,
+          totalLayers
+        );
+        if (layersDue > construction.placedLayers) {
+          placeBusinessStructureLayerBand(
+            business,
+            construction.targetTier,
+            construction.placedLayers,
+            layersDue
+          );
+          construction.placedLayers = layersDue;
+          changed = true;
+        }
+        if (now < construction.completeTick) continue;
+
+        const completedLevel = construction.targetTier;
+        if (completedLevel !== 2 && completedLevel !== 3) {
+          throw new Error(`invalid construction target L${completedLevel}`);
+        }
+        placeFinalBusinessStructure(business, completedLevel);
+        clearConstructionDressing(business);
+        const spawned = respawnBusinessNpcs(business, completedLevel);
+        business.tier = completedLevel;
+        business.construction = null;
+        noteDialogueEvent({
+          kind: "construction",
+          summary: `${tradeDef(business.trade).name} completed its L${completedLevel} upgrade`,
+          tick: now,
+          trade: business.trade,
+        });
+        const clerk =
+          spawned.find((entity) =>
+            entity.getTags().includes(`ew:shop_${business.trade}`)
+          )?.nameTag || `${tradeDef(business.trade).name} Clerk`;
+        world.sendMessage(
+          npcSpeechLine(
+            clerk,
+            `${tradeDef(business.trade).name} has reopened at Level ${completedLevel}.`
+          )
+        );
         const ownership = loadOwnershipState();
-        if (claimOwnershipFirst(ownership, "firstTierThreeClaimed")) {
+        const settlementId = business.site?.dimensionId ?? "world";
+        if (
+          claimSettlementTierFirst(
+            ownership.settlementTierFirsts,
+            settlementId,
+            completedLevel
+          )
+        ) {
+          if (completedLevel === 3) {
+            ownership.firstTierThreeClaimed = true;
+          }
           saveOwnershipState(ownership);
           worldFirstBanner(
-            `${business.ownerName ?? "A player"} raised ${tradeDef(business.trade).name} to Tier 3.`
+            `${business.ownerName ?? "A player"} raised ${tradeDef(
+              business.trade
+            ).name} to Level ${completedLevel}, a settlement first.`
           );
         }
+        changed = true;
+      } catch (error) {
+        console.error(
+          `[ew] construction tick failed for ${business.id}: ${error}`
+        );
       }
-      changed = true;
     }
     if (changed) saveBusinesses(businesses);
-  });
+  }
+  );
 }
 
 export function noteBusinessRevenue(

@@ -86,6 +86,23 @@ Built against `docs/layer1-technical-spec.md` §4.7–§7 and the master design.
   - Construction durations now render as seconds/minutes instead of raw ticks.
   - **Flagged for restructuring:** open ascending auction still exceeds the <=3-tap loop target by design; a condensed one-screen raise flow is required before Realm invite.
 
+### Town-generation spec alignment (Phase 1)
+- Imported authoritative `docs/town-generation-spec.md` and seeded `data/structures.json` + `data/town-layouts.json`.
+- **Structure registry live:** placement resolves captured ids (`ew:stone_quarry_L1/L2/L3`) with front-face orientation and persisted `anchor + rotation + mirror`.
+- **Builder's Catalog tool:** new item `ew:builders_catalog`; use opens a 2-step placement flow (pick in form, then tap target block). Optional business registration is available for trade level-1 entries.
+- **Successor spacing:** per-trade `successorOffsetByTrade` now drives successor site placement (default and stone quarry at `40,0,0`), transformed by the source site's rotation/mirror.
+- **Role-aware office route:** office NPC tag path now routes owner -> owner panel, non-owner -> business-specific clock-in menu, clocked-in worker -> shift status/clock-out.
+- **Legacy stamp deprecation:** `/scriptevent ew:dev zone`, `/publiczone`, and legacy `seedtown` stamping are dev-gated with migration warnings; no old box/pit stamps are generated through those paths.
+
+### Town-generation Phase 2 — tier upgrade construction pipeline
+- **Order + payment:** owner management `Upgrade level` debits the business account (`sink:construction`); insufficient funds decline names needed/available/shortfall. Funding remains `Deposit funds to business`.
+- **Site closes:** storefront clerk announces renovation in its own voice; all business NPCs despawn; open shifts are force clocked-out; storefront / clock-in / processing / service / extraction for that business are closed while `construction` is set.
+- **Dressing:** scaffolding ring around the pad edge + 2–3 material piles near the gate (`ownership.construction.*` ⚑).
+- **Rise:** ownership sweep stamps the TARGET level structure bottom-up in horizontal y-layer bands via `StructureManager` (layer schedule proportional to the construction timer). Overwrite during the rise is intentional.
+- **Completion:** final whole-structure stamp at the stored `anchor + rotation + mirror`, clear scaffolding/piles, respawn NPCs at the new level's registry anchors, apply L2/L3 output/storage/employee-slot multipliers, clerk announces reopen, settlement-first L2/L3 world banner.
+- **Constraints:** one construction per business; owner panel shows target level, time remaining, and placed layers throughout.
+- **Tests:** `test/construction.test.ts` covers proportional layer scheduling, closed-site gating, tier capacity multipliers, settlement firsts, and audit drift=0 through inject → construction sink.
+
 ## Dev commands
 
 Run `/scriptevent ew:dev help` in-game for this same grouped list.
@@ -112,8 +129,8 @@ Run `/scriptevent ew:dev help` in-game for this same grouped list.
 
 ### Phase D
 - `/scriptevent ew:dev jobs`
-- `/scriptevent ew:dev zone <extraction_trade>`
-- `/scriptevent ew:dev publiczone <extraction_trade>`
+- `/scriptevent ew:dev zone <extraction_trade>` *(deprecated/dev-gated)*
+- `/scriptevent ew:dev publiczone <extraction_trade>` *(deprecated/dev-gated)*
 - `/scriptevent ew:dev station <processing_trade>`
 - `/scriptevent ew:dev service <service_trade>`
 - `/scriptevent ew:dev need <service_trade>`
@@ -122,7 +139,11 @@ Run `/scriptevent ew:dev help` in-game for this same grouped list.
 - `/scriptevent ew:dev owner <trade|businessId>`
 
 ### Phase G
-- `/scriptevent ew:dev seedtown [townId]` — place a full starter town from `data/towns.json`
+- `/scriptevent ew:dev place <trade>` — place trade level-1 structure from the registry, front facing player
+- `/scriptevent ew:dev catalog` — open the Builder's Catalog picker
+- `/scriptevent ew:dev givecatalog` — grant the Builder's Catalog tool item
+- `/scriptevent ew:dev undo` — clear the last Builder's Catalog placement volume
+- `/scriptevent ew:dev seedtown [townId]` *(deprecated/dev-gated during registry migration)*
 
 NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`, `ew:shop_<trade>`, `ew:biz_<businessId>`, `ew:owner_<trade>`, `ew:station_<trade>`, `ew:service_<trade>`, `ew:personality_<personality>`.
 
@@ -250,7 +271,17 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `ownership.management.employeeSlotHireCost` | `250` | Slot hire fee | Configured, not charged | Wire to real hire flow or remove |
 | `ownership.management.upgradeCostByTradeTier` | see `data/matrix.json` | Tier-up sink costs | Live | Tune with target payback windows |
 | `ownership.management.upgradeDurationTicksByTier` | `2400` / `3600` | Tier-up construction time | Live | Tune with session-length goals |
-| `ownership.management.successorSpawnOffset` | `(6,0,0)` | CPU successor placement offset | Live | Validate per town footprint to avoid overlap |
+| `ownership.management.successorSpawnOffset` | `(6,0,0)` | Legacy matrix successor offset (registry offsets win) | Superseded by structures registry | Prefer `structures.successorOffsetByTrade` |
+| `ownership.tierOutputMultiplierByTier` | `1 / 1.35 / 1.7` | Output multiplier by level after upgrade | Live | Rebalance with upgrade ROI |
+| `ownership.tierStorageMultiplierByTier` | `1 / 1.5 / 2` | Storage cap multiplier by level | Live | Keep ahead of output so shelves don't choke |
+| `ownership.tierEmployeeSlotMultiplierByTier` | `1 / 1.5 / 2` | Employee slot cap multiplier by level | Live | Tune with real hiring, not stubs |
+| `ownership.construction.sweepTicks` | `20` | Construction rise/dressing tick cadence | Live | Keep engine-aligned unless layer stamps hitch |
+| `ownership.construction.scaffoldingHeight` / `scaffoldingMargin` | `4` / `1` | Scaffolding ring height and pad margin | Live | Tune for couch-readable construction dressing |
+| `ownership.construction.scaffoldingBlock` | `minecraft:scaffolding` | Scaffolding ring block | Live | Swap only if pack art needs a different read |
+| `ownership.construction.materialPiles` | 3 piles near gate (cobble/planks/bricks) | Material-pile density/placement ⚑ | Live | Keep 2–3 piles; adjust offsets per capture gate |
+| `structures.successorOffsetByTrade.default` / `stone_quarry` | `(40,0,0)` | Registry-driven successor spacing beyond pad edge | Live | Keep > max pad width until parcel-aware successor sites ship |
+| `structures.*.padSize` (`stone_quarry`) | `34x28` | Reserved plot footprint per structure trade | Live | Re-measure after final L3 capture lock |
+| `structures.*.gateOffset` / `npcAnchors.*` | quarry anchors seeded from first captures | Gate stub joins + storefront/office spawn points | Live | Re-measure from each final capture; leave unresolved entries as skip-and-warn |
 | `towns.*.placement` / offsets | see `data/towns.json` | Starter-town host and zone geometry | Live | Tune on real map after first seed pass |
 
 ### Dealer soften formula (Phase B, unchanged)
