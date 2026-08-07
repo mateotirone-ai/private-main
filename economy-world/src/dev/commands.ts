@@ -24,6 +24,8 @@ export type DevCommandId =
   | "catalog"
   | "givecatalog"
   | "undo"
+  | "regen"
+  | "pitinfo"
   | "seedtown";
 
 export interface DevCommandSpec {
@@ -62,6 +64,19 @@ export const DEV_COMMANDS: readonly DevCommandSpec[] = [
   { id: "catalog", phase: "G", usage: "catalog", description: "Open the Builder's Catalog" },
   { id: "givecatalog", phase: "G", usage: "givecatalog", description: "Grant Builder's Catalog item" },
   { id: "undo", phase: "G", usage: "undo", description: "Undo last Builder's Catalog placement" },
+  {
+    id: "regen",
+    phase: "G",
+    usage: "regen <businessRef>",
+    description: "Force-restore a volume work_pit now",
+    argument: "businessRef",
+  },
+  {
+    id: "pitinfo",
+    phase: "G",
+    usage: "pitinfo",
+    description: "Dump pit/pad/regen info for the pad you are standing in",
+  },
   { id: "owner", phase: "E", usage: "owner <trade|businessId>", description: "Open buyout or owner management", argument: "target" },
   {
     id: "seedtown",

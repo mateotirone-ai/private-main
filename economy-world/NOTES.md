@@ -103,6 +103,13 @@ Built against `docs/layer1-technical-spec.md` §4.7–§7 and the master design.
 - **Constraints:** one construction per business; owner panel shows target level, time remaining, and placed layers throughout.
 - **Tests:** `test/construction.test.ts` covers proportional layer scheduling, closed-site gating, tier capacity multipliers, settlement firsts, and audit drift=0 through inject → construction sink.
 
+### Town-generation Phase 3 — extraction-zone rework (quarry pattern)
+- **Zone data:** `structures.json` zones are concrete volumes — `work_pit` / `protected_stairs` with `boxes: [[x1,y1,z1,x2,y2,z2], …]` relative to structure origin at rotation 0 (y may be below grade). Transformed at runtime by the site's stored rotation/mirror (same math as NPC anchors). Seed placeholders for stone_quarry L1–L3; other extraction trades stay data entries later.
+- **Mining:** `world.beforeEvents.playerBreakBlock` — stairs always cancel; pad + not clocked-in cancels with NPC denial; work_pit + clocked-in credits piece-rate + business storage only when the broken block matches the current level's authored permutation (`structureManager.get`); placed dirt re-breaks earn nothing; vanilla drops suppressed on credited breaks; outside pad untouched.
+- **Regen:** eligible only when zero workers clocked into the business AND zero players on the pad; clock-in or pad entry cancels the pending timer; after `work.pitRegenDelayTicks` (⚑, default 1200 = 60s) restore only the `work_pit` volume via StructureManager temp slices. Level upgrades overwrite the pit (reset ruling) and re-derive zones from the new level registry entry.
+- **Dev:** `ew:dev regen <businessRef>` force-restores now; `ew:dev pitinfo` dumps business/zone/clocked-in/regen state for the pad you stand in.
+- **Tests:** `test/extractionPit.test.ts` — stairs protect, pad denial, authored credit once, non-authored no credit, regen gating, four rotations, upgrade re-derive, audit drift=0 through wage settlement.
+
 ## Dev commands
 
 Run `/scriptevent ew:dev help` in-game for this same grouped list.
@@ -143,6 +150,8 @@ Run `/scriptevent ew:dev help` in-game for this same grouped list.
 - `/scriptevent ew:dev catalog` — open the Builder's Catalog picker
 - `/scriptevent ew:dev givecatalog` — grant the Builder's Catalog tool item
 - `/scriptevent ew:dev undo` — clear the last Builder's Catalog placement volume
+- `/scriptevent ew:dev regen <businessRef>` — force-restore that business's volume `work_pit` now
+- `/scriptevent ew:dev pitinfo` — standing in a pad: business, zone bounds, clocked-in list, regen state/timer
 - `/scriptevent ew:dev seedtown [townId]` *(deprecated/dev-gated during registry migration)*
 
 NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`, `ew:shop_<trade>`, `ew:biz_<businessId>`, `ew:owner_<trade>`, `ew:station_<trade>`, `ew:service_<trade>`, `ew:personality_<personality>`.
@@ -254,6 +263,10 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `ui.hud.priorities` | default `10`, construction `40`, employment `60`, onboarding `70`, service `80` | Actionbar context precedence | Live | Preserve ordering; only tune if onboarding is obscured |
 | `work.nodeStampOffsets` | 3x3, spacing `2`, depth `-1` | Extraction pit geometry | Live | Replace with authored map footprints per town later |
 | `work.nodeStages` | depleted `100`, recovering `300` | Node regen pacing | Live | Tune for anti-AFK feel after 2-player test |
+| `work.pitRegenDelayTicks` | `1200` (60s) | Volume-pit regen delay after pad empty + no clocked workers | Live | Keep rock from regrowing on camera; tune after quarry playtest |
+| `work.pitRegenSweepTicks` | `20` | Pit regen eligibility poll cadence | Live | Keep engine-aligned unless pad scans hitch |
+| `work.employment.pieceRateByTradeTier.stone_quarry` | `2 / 3 / 4` | Per authored pit block wage by tier | Live | Tune with stone price / pit volume after capture lock |
+| `structures.stone_quarry_L*.zones.work_pit` / `protected_stairs` | seed boxes `[[8,-4,10,24,0,24]]` / `[[8,-4,10,10,0,24]]` | Pit + unbreakable stair volumes (origin-relative) | Live (TODO-measure) | Re-measure from final captures; leave unresolved as skip-and-warn |
 | `work.processingSweepTicks` / `processingTicksPerSecond` | `20` / `20` | Processing completion cadence/time display | Live | Keep engine-aligned unless perf demands batching |
 | `work.processing.*` ratios/durations | sawmill `2->4 @200`, smeltery `2->1 @300`, bakery `3->2 @160` | Refining throughput | Live | Tune against price ladder and piece rates together |
 | `work.service.spawnEveryTicks` | `600` | Need spawn cadence | Live | Tune by queue starvation/overload metrics |

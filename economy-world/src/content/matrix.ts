@@ -44,6 +44,8 @@ export interface Matrix {
   work: {
     nodeStampOffsets: Array<{ x: number; y: number; z: number }>;
     nodeStages: { depletedTicks: number; recoveringTicks: number };
+    pitRegenDelayTicks: number;
+    pitRegenSweepTicks: number;
     processingSweepTicks: number;
     processingTicksPerSecond: number;
     processing: Record<

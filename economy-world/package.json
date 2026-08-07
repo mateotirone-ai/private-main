@@ -1,9 +1,9 @@
 {
   "name": "economy-world",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "phase": "G",
   "private": true,
-  "description": "Economy World - Minecraft Bedrock add-on. Phase G: structure placement + tier construction pipeline.",
+  "description": "Economy World - Minecraft Bedrock add-on. Phase G: structure placement, construction, volume extraction pits.",
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",

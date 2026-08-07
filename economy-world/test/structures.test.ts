@@ -17,6 +17,14 @@ describe("structure registry", () => {
       role: "storefront",
       tags: [],
     });
+    expect(structureForTradeLevel("stone_quarry", 1)?.zones.work_pit?.boxes[0]).toEqual({
+      min: { x: 8, y: -4, z: 10 },
+      max: { x: 24, y: 0, z: 24 },
+    });
+    expect(structureForTradeLevel("stone_quarry", 1)?.zones.protected_stairs?.boxes[0]).toEqual({
+      min: { x: 8, y: -4, z: 10 },
+      max: { x: 10, y: 0, z: 24 },
+    });
   });
 
   it("reads successor spacing from per-trade config", () => {

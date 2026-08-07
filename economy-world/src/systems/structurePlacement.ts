@@ -16,6 +16,7 @@ import {
   type StructureMirror,
   successorOffsetForTrade,
   type StructureEntry,
+  type StructureZoneVolume,
 } from "../content/structures";
 import {
   resolvePlacementTransform,
@@ -23,8 +24,13 @@ import {
 } from "./structurePlacementMath";
 import { saveBusinesses, type BusinessesState } from "./businesses";
 import { feedback } from "../ui/feedback";
-import { registerWorkZone, type ExtractionState } from "./extraction";
+import type { ExtractionState } from "./extraction";
 import type { Business } from "./businesses";
+import {
+  localOffsetAtWorld,
+  pitSiteContext,
+  structureOriginForSite,
+} from "./extractionPit";
 
 const PERSONALITY_TAGS = [
   "ew:personality_practical",
@@ -506,6 +512,117 @@ export function placeBusinessStructureLayerBand(
   return to - from;
 }
 
+export function authoredBlockTypeAt(
+  business: Business,
+  worldLocation: { x: number; y: number; z: number },
+  level = business.tier
+): string | undefined {
+  const ctx = pitSiteContext(business, level);
+  const target = targetStructure(business, level);
+  if (!ctx || !target) return undefined;
+  const local = localOffsetAtWorld(ctx, worldLocation);
+  if (
+    local.x < 0 ||
+    local.y < 0 ||
+    local.z < 0 ||
+    local.x >= target.structure.size.x ||
+    local.y >= target.structure.size.y ||
+    local.z >= target.structure.size.z
+  ) {
+    return undefined;
+  }
+  return target.structure.getBlockPermutation(local)?.type.id;
+}
+
+/**
+ * Restore only the named zone volume from the current level's authored structure.
+ * Uses temp StructureManager slices (same technique as construction layer rise).
+ */
+export function restoreBusinessZoneVolume(
+  business: Business,
+  zoneName: string,
+  level = business.tier
+): number {
+  if (!business.site) return 0;
+  const target = targetStructure(business, level);
+  const volume = target?.entry.zones[zoneName] as StructureZoneVolume | undefined;
+  if (!target || !volume?.boxes.length) return 0;
+  const transform = {
+    rotationSteps: business.site.rotationSteps,
+    mirror: business.site.mirror,
+  };
+  const origin = structureOriginForSite(
+    business.site.anchor,
+    target.entry,
+    transform
+  );
+  const dimension = world.getDimension(business.site.dimensionId);
+  const air = BlockPermutation.resolve("minecraft:air");
+  let restoredBoxes = 0;
+  for (const box of volume.boxes) {
+    const size = {
+      x: box.max.x - box.min.x + 1,
+      y: box.max.y - box.min.y + 1,
+      z: box.max.z - box.min.z + 1,
+    };
+    if (size.x <= 0 || size.y <= 0 || size.z <= 0) continue;
+    const tempId = `ew:pit_regen_${business.id.replace(
+      /[^a-zA-Z0-9_]/g,
+      "_"
+    )}_${zoneName}_${temporaryStructureSequence++}`;
+    const slice = world.structureManager.createEmpty(tempId, size);
+    try {
+      for (let y = box.min.y; y <= box.max.y; y += 1) {
+        for (let z = box.min.z; z <= box.max.z; z += 1) {
+          for (let x = box.min.x; x <= box.max.x; x += 1) {
+            const sourceLoc = { x, y, z };
+            const inStructure =
+              x >= 0 &&
+              y >= 0 &&
+              z >= 0 &&
+              x < target.structure.size.x &&
+              y < target.structure.size.y &&
+              z < target.structure.size.z;
+            const sourcePermutation = inStructure
+              ? target.structure.getBlockPermutation(sourceLoc)
+              : undefined;
+            // Negative-y pit cells may sit below the structure asset; leave air.
+            slice.setBlockPermutation(
+              {
+                x: x - box.min.x,
+                y: y - box.min.y,
+                z: z - box.min.z,
+              },
+              sourcePermutation ?? air,
+              sourcePermutation
+                ? target.structure.getIsWaterlogged(sourceLoc)
+                : false
+            );
+          }
+        }
+      }
+      const placeAt = add(
+        origin,
+        transformOffset(
+          { x: box.min.x, y: box.min.y, z: box.min.z },
+          transform
+        )
+      );
+      placeStructure(
+        dimension,
+        slice,
+        placeAt,
+        business.site.rotationSteps,
+        business.site.mirror
+      );
+      restoredBoxes += 1;
+    } finally {
+      world.structureManager.delete(slice);
+    }
+  }
+  return restoredBoxes;
+}
+
 export function placeFinalBusinessStructure(
   business: Business,
   level: number
@@ -533,7 +650,7 @@ export function placeFinalBusinessStructure(
 export function placeBusinessStructure(
   player: Player,
   businesses: BusinessesState,
-  extraction: ExtractionState,
+  _extraction: ExtractionState,
   trade: string,
   tier: 1 | 2 | 3 = 1,
   mirror: StructureMirror = "none",
@@ -567,34 +684,12 @@ export function placeBusinessStructure(
   despawnBusinessNpcs(business);
   placeStructure(dimension, entry.id, origin, rotationSteps, transform.mirror);
 
-  const pitZone = entry.zones.work_pit;
-  if (
-    Array.isArray(pitZone) &&
-    pitZone.length === 6 &&
-    pitZone.every((n) => typeof n === "number")
-  ) {
-    const [x1, y1, z1, x2, y2, z2] = pitZone as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ];
-    const center = add(
-      origin,
-      transformOffset(
-        {
-          x: Math.floor((x1 + x2) / 2),
-          y: Math.floor((y1 + y2) / 2),
-          z: Math.floor((z1 + z2) / 2),
-        },
-        { rotationSteps, mirror: transform.mirror }
-      )
+  // Volume-pit trades (work_pit boxes) mine via playerBreakBlock + authored lookup.
+  // Legacy 3×3 node stamps are not registered for volume pits.
+  if (!entry.zones.work_pit?.boxes.length) {
+    console.warn(
+      `[ew] ${entry.id} work_pit zone unresolved; volume extraction unavailable`
     );
-    registerWorkZone(extraction, business.id, trade, dimension, center, false);
-  } else {
-    console.warn(`[ew] ${entry.id} work_pit zone unresolved; extraction zone not registered`);
   }
 
   spawnBuildingNpcs(

@@ -15,6 +15,15 @@ export interface StructureNpcAnchor {
   tags: string[];
 }
 
+export interface ZoneBox {
+  min: StructureOffset;
+  max: StructureOffset;
+}
+
+export interface StructureZoneVolume {
+  boxes: ZoneBox[];
+}
+
 interface RawStructureEntry {
   id: string;
   trade?: string;
@@ -43,7 +52,7 @@ export interface StructureEntry {
   front?: Cardinal;
   gateOffset?: StructureOffset;
   npcAnchors: Record<string, StructureNpcAnchor | undefined>;
-  zones: Record<string, unknown>;
+  zones: Record<string, StructureZoneVolume | undefined>;
 }
 
 const file = raw as unknown as RawStructuresFile;
@@ -67,6 +76,50 @@ function toCardinal(value: unknown): Cardinal | undefined {
     return value;
   }
   return undefined;
+}
+
+function normalizeZoneBox(raw: unknown): ZoneBox | undefined {
+  if (!Array.isArray(raw) || raw.length !== 6) return undefined;
+  if (!raw.every((n) => typeof n === "number" && Number.isFinite(n))) {
+    return undefined;
+  }
+  const [x1, y1, z1, x2, y2, z2] = raw as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  return {
+    min: {
+      x: Math.min(x1, x2),
+      y: Math.min(y1, y2),
+      z: Math.min(z1, z2),
+    },
+    max: {
+      x: Math.max(x1, x2),
+      y: Math.max(y1, y2),
+      z: Math.max(z1, z2),
+    },
+  };
+}
+
+export function parseZoneVolume(raw: unknown): StructureZoneVolume | undefined {
+  if (raw === "TODO" || raw == null) return undefined;
+  if (Array.isArray(raw) && raw.length === 6) {
+    const box = normalizeZoneBox(raw);
+    return box ? { boxes: [box] } : undefined;
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const boxesRaw = (raw as { boxes?: unknown }).boxes;
+  if (!Array.isArray(boxesRaw)) return undefined;
+  const boxes: ZoneBox[] = [];
+  for (const entry of boxesRaw) {
+    const box = normalizeZoneBox(entry);
+    if (box) boxes.push(box);
+  }
+  return boxes.length ? { boxes } : undefined;
 }
 
 function toNpcAnchor(
@@ -136,6 +189,25 @@ function normalizeEntry(rawEntry: RawStructureEntry): StructureEntry | undefined
     }
     npcAnchors[name] = parsed;
   }
+  const zones: Record<string, StructureZoneVolume | undefined> = {};
+  for (const [name, rawZone] of Object.entries(rawEntry.zones ?? {})) {
+    if (rawZone === "TODO") {
+      warnOnce(
+        `structure:${rawEntry.id}:zone:${name}`,
+        `structure ${rawEntry.id} zone ${name} unresolved; skipping`
+      );
+      zones[name] = undefined;
+      continue;
+    }
+    const parsed = parseZoneVolume(rawZone);
+    if (!parsed) {
+      warnOnce(
+        `structure:${rawEntry.id}:zone:${name}`,
+        `structure ${rawEntry.id} zone ${name} malformed; skipping`
+      );
+    }
+    zones[name] = parsed;
+  }
   return {
     id: rawEntry.id,
     trade: rawEntry.trade,
@@ -146,7 +218,7 @@ function normalizeEntry(rawEntry: RawStructureEntry): StructureEntry | undefined
     front: toCardinal(rawEntry.front),
     gateOffset,
     npcAnchors,
-    zones: rawEntry.zones ?? {},
+    zones,
   };
 }
 

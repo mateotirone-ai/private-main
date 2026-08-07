@@ -52,7 +52,9 @@ import {
 import { reclaimCompanyTools } from "./systems/companyTools";
 import { clearActionbar, clearPlayerUiState } from "./ui/toast";
 import {
+  forceRestorePit,
   loadExtraction,
+  pitInfoForPlayer,
   startExtractionSystem,
   type ExtractionState,
 } from "./systems/extraction";
@@ -473,6 +475,38 @@ function boot(): void {
           if (!player) break;
           if (!undoLastCatalogPlacement(player)) {
             world.sendMessage("§e[dev] no catalog placement to undo");
+          }
+          break;
+        }
+        case "regen": {
+          const ref = command.argument!;
+          const business =
+            bizState.byId[ref] ?? bizState.byId[`cpu_${ref}`];
+          if (!business) {
+            world.sendMessage(`§c[dev] unknown businessRef: ${ref}`);
+            break;
+          }
+          const restored = forceRestorePit(
+            extractionState,
+            bizState,
+            business.id
+          );
+          world.sendMessage(
+            restored
+              ? `§a[dev] restored work_pit for ${business.id} (${restored} box${restored === 1 ? "" : "es"})`
+              : `§e[dev] no work_pit volume to restore for ${business.id}`
+          );
+          break;
+        }
+        case "pitinfo": {
+          if (!player) break;
+          for (const line of pitInfoForPlayer(
+            player,
+            extractionState,
+            bizState,
+            employmentState
+          )) {
+            world.sendMessage(`§e[dev] ${line}`);
           }
           break;
         }
