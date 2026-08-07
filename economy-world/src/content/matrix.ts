@@ -33,13 +33,38 @@ export interface Matrix {
     };
   };
   town: {
-    streetMaterialSetByEra: Record<
+    streetMaterialSetByEra: Record<string, Record<string, unknown>>;
+    maxStreetGrade: number;
+    lanternInterval: number;
+    stubWidth: number;
+    clearingMargin: number;
+    streetTreeInterval: number;
+    meadowFlowerDensity: number;
+    floraByBiome: Record<
       string,
-      {
-        street: string;
-        stub: string;
-      }
+      { tree: string; hedge: string; flowers: string[] }
     >;
+    parcel: {
+      basePerBlock2: number;
+      mainFrontageFactor: number;
+      laneFrontageFactor: number;
+      plazaNear: number;
+      plazaFar: number;
+      plazaNearFactor: number;
+      plazaFarFactor: number;
+      waterfrontBonus: number;
+      sizeBands: { small: number; medium: number; large: number };
+    };
+    surveyFloor: {
+      palette: Record<string, string>;
+      standaloneSize: [number, number];
+    };
+    surveyMarkers: {
+      parcel: string;
+      slot: string;
+      growth: string;
+    };
+    retainingWallBlock: string;
   };
   work: {
     nodeStampOffsets: Array<{ x: number; y: number; z: number }>;

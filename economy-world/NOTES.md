@@ -110,6 +110,16 @@ Built against `docs/layer1-technical-spec.md` §4.7–§7 and the master design.
 - **Dev:** `ew:dev regen <businessRef>` force-restores now; `ew:dev pitinfo` dumps business/zone/clocked-in/regen state for the pad you stand in.
 - **Tests:** `test/extractionPit.test.ts` — stairs protect, pad denial, authored credit once, non-authored no credit, regen gating, four rotations, upgrade re-derive, audit drift=0 through wage settlement.
 
+### Town-generation Phase 4 — layouts, streets, parcels, Survey Floor
+- **Golden fixture:** `data/town-layouts.json` Layout 01 `heartlands_crossroads` drives all seeding. Missing captures leave slots empty (warn once); `ew:home_5` TODO gate stays skip-and-warn.
+- **Modes:** `ew:dev seedtown <survey|skeleton|full> [layoutId]` at the player. Survey = real Settlement streets + yellow parcel / blue slot / red growth markers. Skeleton = streets + registered priced parcels + town-hall/commons slots (empty if no capture). Full = skeleton + registry fills (e.g. `stone_quarry` → work_site, `home_5` → house). Re-seed at the same anchor replaces cleanly.
+- **Streets:** polyline raster (core + cobble edging), plaza ellipse, well, lanterns every N ⚑, stub paths (2 wide) from gate/front to nearest street at the street's local angle — no snapping.
+- **Terrain:** grid-sample every 2 blocks; refuse unloaded chunks or variance > `slopeToleranceY`. Per-pad median grading + cobble retaining edges. Streets follow ground.
+- **Greening:** clear only streets/pads/parcels + feathered margin; empty parcels = meadow (grass + noise flowers from biome flora ⚑); street trees; oak-leaf hedges on parcel polygons.
+- **Parcels:** dynamic-property registry; price = basePerBlock² × frontage × plaza-distance × waterfront (all shown on the buy form). Buy (2-step, `sink:buyout`), deed, Survey Floor repaint, merge adjacent owned lots.
+- **Survey Floor:** `ew:dev surveyfloor [layoutRef]` stamps a standalone mosaic for testing; stand → actionbar summary; use → buy/owner/merge. Office-hosted floor activates when a `real_estate_L1` capture + `surveyFloor` zone land.
+- **Tests:** `test/townGeneration.test.ts` — modes/idempotency keys, empty-on-missing, pricing factors, buy+merge+audit, slope refusal, stub connectivity, Survey Floor mapping.
+
 ## Dev commands
 
 Run `/scriptevent ew:dev help` in-game for this same grouped list.
@@ -152,7 +162,8 @@ Run `/scriptevent ew:dev help` in-game for this same grouped list.
 - `/scriptevent ew:dev undo` — clear the last Builder's Catalog placement volume
 - `/scriptevent ew:dev regen <businessRef>` — force-restore that business's volume `work_pit` now
 - `/scriptevent ew:dev pitinfo` — standing in a pad: business, zone bounds, clocked-in list, regen state/timer
-- `/scriptevent ew:dev seedtown [townId]` *(deprecated/dev-gated during registry migration)*
+- `/scriptevent ew:dev seedtown <survey|skeleton|full> [layoutId]` — seed Heartlands Crossroads (or named layout) at your position
+- `/scriptevent ew:dev surveyfloor [layoutRef]` — stamp a standalone Survey Floor mapped to a seeded town
 
 NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`, `ew:shop_<trade>`, `ew:biz_<businessId>`, `ew:owner_<trade>`, `ew:station_<trade>`, `ew:service_<trade>`, `ew:personality_<personality>`.
 
@@ -296,6 +307,22 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `structures.*.padSize` (`stone_quarry`) | `34x28` | Reserved plot footprint per structure trade | Live | Re-measure after final L3 capture lock |
 | `structures.*.gateOffset` / `npcAnchors.*` | quarry anchors seeded from first captures | Gate stub joins + storefront/office spawn points | Live | Re-measure from each final capture; leave unresolved entries as skip-and-warn |
 | `towns.*.placement` / offsets | see `data/towns.json` | Starter-town host and zone geometry | Live | Tune on real map after first seed pass |
+| `town.streetMaterialSetByEra.settlement.*` | dirt_path/coarse_dirt + gravel patches + cobble edge | Settlement road surfaces | Live | Keep readable vs meadow; retune with art pass |
+| `town.maxStreetGrade` | `3` | Max street dy before refuse/stair | Live | Match layout `slopeToleranceY` feel |
+| `town.lanternInterval` / `streetTreeInterval` | `12` / `16` | Lantern + street-tree spacing along main | Live | Keep village rhythm; avoid rows |
+| `town.stubWidth` / `clearingMargin` | `2` / `2` | Stub path width + greening clear margin | Live | Keep stubs narrow; feather margin irregular |
+| `town.meadowFlowerDensity` | `0.08` | Empty-parcel flower noise | Live | Raise only if meadows look barren |
+| `town.floraByBiome.*` | oak/leaves + Heartlands flower set | Biome flora table for hedges/trees/meadow | Live | Expand with Timberlands/Fen tables later |
+| `town.parcel.basePerBlock2` | `5` | Parcel price base per block² | Live | Primary land-value knob |
+| `town.parcel.mainFrontageFactor` / `laneFrontageFactor` | `1.5` / `1.0` | Street-frontage multipliers | Live | Keep main clearly premium |
+| `town.parcel.plazaNear/Far` + factors | `20→1.3` … `60→1.0` | Plaza proximity curve | Live | Tune after first buyout session |
+| `town.parcel.waterfrontBonus` | `2.0` | Touching-water multiplier | Live | Keep dramatic vs inland lots |
+| `town.parcel.sizeBands` | `80/200/500` | small/medium/large/estate thresholds | Live | Align with house vs work pads |
+| `town.surveyFloor.palette` | lime/blue/yellow/green concrete | Survey Floor status colors | Live | Couch-readable status mapping |
+| `town.surveyFloor.standaloneSize` | `16×12` | Dev surveyfloor stamp footprint | Live | Grow with RE office capture |
+| `town.surveyMarkers.*` | yellow/blue/red concrete | survey-mode parcel/slot/growth paints | Live | Designer walk readability only |
+| `town.retainingWallBlock` | `minecraft:cobblestone` | Pad cut retaining edges | Live | Swap for biome stone later |
+| `layouts.heartlands_crossroads.slopeToleranceY` | `6` | Site height variance refuse | Live | Re-author with steep layouts in Phase 5 |
 
 ### Dealer soften formula (Phase B, unchanged)
 ```

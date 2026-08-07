@@ -26,6 +26,7 @@ export type DevCommandId =
   | "undo"
   | "regen"
   | "pitinfo"
+  | "surveyfloor"
   | "seedtown";
 
 export interface DevCommandSpec {
@@ -77,12 +78,19 @@ export const DEV_COMMANDS: readonly DevCommandSpec[] = [
     usage: "pitinfo",
     description: "Dump pit/pad/regen info for the pad you are standing in",
   },
+  {
+    id: "surveyfloor",
+    phase: "G",
+    usage: "surveyfloor [layoutRef]",
+    description: "Stamp a standalone Survey Floor mapped to a seeded town",
+    optionalArgument: true,
+  },
   { id: "owner", phase: "E", usage: "owner <trade|businessId>", description: "Open buyout or owner management", argument: "target" },
   {
     id: "seedtown",
     phase: "G",
-    usage: "seedtown [townId]",
-    description: "Place a full starter town",
+    usage: "seedtown <survey|skeleton|full> [layoutId]",
+    description: "Seed a town layout at your position",
     optionalArgument: true,
   },
 ] as const;

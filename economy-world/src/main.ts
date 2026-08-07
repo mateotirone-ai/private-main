@@ -76,6 +76,12 @@ import {
   placeBusinessStructure,
   reloadBusinessStructure,
 } from "./systems/structurePlacement";
+import { seedTownMode } from "./systems/townSeeding";
+import { parseSeedtownArgs } from "./systems/townSeedMath";
+import {
+  stampStandaloneSurveyFloor,
+  startSurveyFloorSystem,
+} from "./systems/surveyFloor";
 import {
   BUILDERS_CATALOG_ITEM,
   clearCatalogPlayerState,
@@ -262,6 +268,7 @@ function boot(): void {
     employmentState
   );
   startServiceJob(serviceState, bizState, employmentState);
+  startSurveyFloorSystem(ledger);
   startHudJob();
   setSuccessorSpawnHook((payload) => {
     const successor = bizState.byId[payload.successorId];
@@ -433,9 +440,40 @@ function boot(): void {
           break;
         }
         case "seedtown": {
-          world.sendMessage(
-            "§e[dev] seedtown legacy host-line stamping is gated for structure-registry migration."
-          );
+          if (!player) break;
+          try {
+            const parsed = parseSeedtownArgs(command.argument);
+            const result = seedTownMode(
+              player,
+              parsed.mode,
+              parsed.layoutId,
+              bizState,
+              extractionState
+            );
+            world.sendMessage(
+              `§a[dev] seedtown ${result.mode} ${result.layoutId} — parcels ${result.parcels}, filled ${result.filledSlots}, empty ${result.emptySlots}`
+            );
+            for (const warning of result.warnings.slice(0, 6)) {
+              world.sendMessage(`§e[dev] ${warning}`);
+            }
+          } catch (error) {
+            world.sendMessage(`§c[dev] seedtown refused: ${error}`);
+          }
+          break;
+        }
+        case "surveyfloor": {
+          if (!player) break;
+          try {
+            const stamp = stampStandaloneSurveyFloor(
+              player,
+              command.argument
+            );
+            world.sendMessage(
+              `§a[dev] survey floor ${stamp.width}x${stamp.depth} for ${stamp.townId} at ${stamp.origin.x},${stamp.origin.y},${stamp.origin.z}`
+            );
+          } catch (error) {
+            world.sendMessage(`§c[dev] surveyfloor failed: ${error}`);
+          }
           break;
         }
         case "place": {

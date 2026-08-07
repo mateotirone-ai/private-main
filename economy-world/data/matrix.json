@@ -42,13 +42,73 @@
     }
   },
   "town": {
-    "_comment": "⚑ Era-tier street material sets are placeholders until map-art pass.",
+    "_comment": "⚑ Town generation Phase 4 tuning — streets, greening, parcels, Survey Floor.",
     "streetMaterialSetByEra": {
       "starter": {
-        "street": "minecraft:cobblestone",
+        "street": "minecraft:dirt_path",
+        "stub": "minecraft:gravel"
+      },
+      "settlement": {
+        "core": ["minecraft:dirt_path", "minecraft:coarse_dirt"],
+        "corePatch": "minecraft:gravel",
+        "patchChance": 0.12,
+        "edge": "minecraft:cobblestone",
+        "plaza": "minecraft:stone",
+        "well": "minecraft:cobblestone",
+        "lanternPost": "minecraft:oak_fence",
+        "lantern": "minecraft:lantern",
         "stub": "minecraft:gravel"
       }
-    }
+    },
+    "maxStreetGrade": 3,
+    "lanternInterval": 12,
+    "stubWidth": 2,
+    "clearingMargin": 2,
+    "streetTreeInterval": 16,
+    "meadowFlowerDensity": 0.08,
+    "floraByBiome": {
+      "heartlands": {
+        "tree": "minecraft:oak_sapling",
+        "hedge": "minecraft:oak_leaves",
+        "flowers": ["minecraft:poppy", "minecraft:dandelion", "minecraft:oxeye_daisy", "minecraft:cornflower"]
+      },
+      "plains": {
+        "tree": "minecraft:oak_sapling",
+        "hedge": "minecraft:oak_leaves",
+        "flowers": ["minecraft:poppy", "minecraft:dandelion", "minecraft:azure_bluet"]
+      },
+      "default": {
+        "tree": "minecraft:oak_sapling",
+        "hedge": "minecraft:oak_leaves",
+        "flowers": ["minecraft:poppy", "minecraft:dandelion"]
+      }
+    },
+    "parcel": {
+      "basePerBlock2": 5,
+      "mainFrontageFactor": 1.5,
+      "laneFrontageFactor": 1.0,
+      "plazaNear": 20,
+      "plazaFar": 60,
+      "plazaNearFactor": 1.3,
+      "plazaFarFactor": 1.0,
+      "waterfrontBonus": 2.0,
+      "sizeBands": { "small": 80, "medium": 200, "large": 500 }
+    },
+    "surveyFloor": {
+      "palette": {
+        "available": "minecraft:lime_concrete",
+        "owned": "minecraft:blue_concrete",
+        "pending": "minecraft:yellow_concrete",
+        "commons": "minecraft:green_concrete"
+      },
+      "standaloneSize": [16, 12]
+    },
+    "surveyMarkers": {
+      "parcel": "minecraft:yellow_concrete",
+      "slot": "minecraft:blue_concrete",
+      "growth": "minecraft:red_concrete"
+    },
+    "retainingWallBlock": "minecraft:cobblestone"
   },
   "work": {
     "_comment": "⚑ Phase D timing/capacity numbers are implementation placeholders where docs define behavior but not values.",
