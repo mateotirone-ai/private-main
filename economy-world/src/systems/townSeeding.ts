@@ -28,6 +28,14 @@ import {
   type TownInstance,
 } from "./townInstances";
 import {
+  growthPointsFromLayoutOrPreserved,
+  preserveExpansionsOnReseed,
+  registerLayoutGrowthPoints,
+} from "./expansionMath";
+import { ensureTownTreasury } from "./townInstances";
+import type { LedgerState } from "../core/ledger";
+import { currentTick } from "../core/scheduler";
+import {
   lanternPostsAlongPolyline,
   nearestPointOnSegments,
   rasterizePlazaEllipse,
@@ -497,7 +505,8 @@ export function seedTownMode(
   mode: SeedMode,
   layoutId: string | undefined,
   businesses: BusinessesState,
-  _extraction: ExtractionState
+  _extraction: ExtractionState,
+  ledger?: LedgerState
 ): SeedTownModeResult {
   const layout = townLayoutById(layoutId ?? defaultTownLayoutId());
   if (!layout) throw new Error(`unknown layout ${layoutId}`);
@@ -512,6 +521,7 @@ export function seedTownMode(
 
   const instances = loadTownInstances();
   const previous = findTownAtAnchor(instances, townId);
+  const preservedExpansions = preserveExpansionsOnReseed(previous?.expansions);
   if (previous) {
     clearPreviousFootprint(dimension, layout, origin, transform);
   }
@@ -611,6 +621,22 @@ export function seedTownMode(
   if (mode !== "survey") saveParcels(parcels);
   saveBusinesses(businesses);
 
+  const layoutGrowth = registerLayoutGrowthPoints(layout, origin, transform);
+  const growthPoints = growthPointsFromLayoutOrPreserved(
+    layoutGrowth,
+    previous?.growthPoints,
+    preservedExpansions
+  );
+
+  if (ledger && mode !== "survey") {
+    ensureTownTreasury(
+      ledger,
+      townId,
+      matrix.town.expansion.startingTreasury,
+      currentTick()
+    );
+  }
+
   upsertTownInstance(instances, {
     id: townId,
     layoutId: layout.id,
@@ -619,8 +645,13 @@ export function seedTownMode(
     rotationSteps: transform.rotationSteps,
     mirror: transform.mirror,
     mode,
+    leaderPlayerId: previous?.leaderPlayerId ?? player.id,
     parcelIds,
     filledSlots: filled,
+    growthPoints,
+    expansions: preservedExpansions,
+    wallsExist: previous?.wallsExist ?? false,
+    surveyFloor: previous?.surveyFloor,
   });
   saveTownInstances(instances);
 

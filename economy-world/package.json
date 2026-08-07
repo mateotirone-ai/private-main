@@ -1,9 +1,9 @@
 {
   "name": "economy-world",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "phase": "G",
   "private": true,
-  "description": "Economy World - Minecraft Bedrock add-on. Phase G: town layouts, streets, parcels, Survey Floor.",
+  "description": "Economy World - Minecraft Bedrock add-on. Phase G: town generation complete through expansion.",
   "type": "module",
   "scripts": {
     "build": "node tools/build.mjs",

@@ -27,6 +27,7 @@ export type DevCommandId =
   | "regen"
   | "pitinfo"
   | "surveyfloor"
+  | "expand"
   | "seedtown";
 
 export interface DevCommandSpec {
@@ -83,6 +84,13 @@ export const DEV_COMMANDS: readonly DevCommandSpec[] = [
     phase: "G",
     usage: "surveyfloor [layoutRef]",
     description: "Stamp a standalone Survey Floor mapped to a seeded town",
+    optionalArgument: true,
+  },
+  {
+    id: "expand",
+    phase: "G",
+    usage: "expand [townRef]",
+    description: "Open Town Hall expansion flow for a seeded town",
     optionalArgument: true,
   },
   { id: "owner", phase: "E", usage: "owner <trade|businessId>", description: "Open buyout or owner management", argument: "target" },

@@ -65,6 +65,15 @@ export interface Matrix {
       growth: string;
     };
     retainingWallBlock: string;
+    expansion: {
+      outsideWallsDiscount: number;
+      startingTreasury: number;
+      ticksPerModuleBlock: number;
+      minDurationTicks: number;
+      maxDurationTicks: number;
+      sweepTicks: number;
+      vacantHouseRecommendThreshold: number;
+    };
   };
   work: {
     nodeStampOffsets: Array<{ x: number; y: number; z: number }>;

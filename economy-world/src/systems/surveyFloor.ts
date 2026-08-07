@@ -98,7 +98,12 @@ export function stampStandaloneSurveyFloor(
       `no seeded town to map — run seedtown skeleton|full first (layout ${defaultTownLayoutId()})`
     );
   }
-  const [width, depth] = matrix.town.surveyFloor.standaloneSize;
+  const parcels = loadParcels();
+  const parcelCount = parcelsForTown(parcels, instance.id).length;
+  const [baseW, baseD] = matrix.town.surveyFloor.standaloneSize;
+  const cols = Math.max(1, Math.ceil(Math.sqrt(Math.max(1, parcelCount))));
+  const width = Math.max(baseW, cols * 2);
+  const depth = Math.max(baseD, Math.ceil(parcelCount / cols) * 2);
   const origin = floorVec(player.location);
   origin.y = Math.max(-64, origin.y - 1);
   const stamp: SurveyFloorStamp = {
@@ -110,7 +115,6 @@ export function stampStandaloneSurveyFloor(
   };
   instance.surveyFloor = { origin, width, depth };
   saveTownInstances(instances);
-  const parcels = loadParcels();
   paintSurveyFloor(instance.id, parcels, stamp);
   return stamp;
 }

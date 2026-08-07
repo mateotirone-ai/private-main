@@ -108,7 +108,17 @@
       "slot": "minecraft:blue_concrete",
       "growth": "minecraft:red_concrete"
     },
-    "retainingWallBlock": "minecraft:cobblestone"
+    "retainingWallBlock": "minecraft:cobblestone",
+    "expansion": {
+      "_comment": "⚑ Phase 5 town expansion treasury + construction pacing.",
+      "outsideWallsDiscount": 0.7,
+      "startingTreasury": 50000,
+      "ticksPerModuleBlock": 0.15,
+      "minDurationTicks": 200,
+      "maxDurationTicks": 2400,
+      "sweepTicks": 20,
+      "vacantHouseRecommendThreshold": 0.25
+    }
   },
   "work": {
     "_comment": "⚑ Phase D timing/capacity numbers are implementation placeholders where docs define behavior but not values.",

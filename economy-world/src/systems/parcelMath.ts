@@ -21,6 +21,7 @@ export interface ParcelPriceFactors {
   plazaDistanceFactor: number;
   waterfront: boolean;
   waterfrontBonus: number;
+  outsideWallsFactor: number;
 }
 
 export interface ParcelPriceBreakdown {
@@ -70,6 +71,7 @@ export function computeParcelPrice(input: {
   plazaNearFactor: number;
   plazaFarFactor: number;
   waterfrontBonus: number;
+  outsideWallsFactor?: number;
 }): ParcelPriceBreakdown {
   const area = parcelArea(input.bounds);
   const frontageFactor =
@@ -84,8 +86,14 @@ export function computeParcelPrice(input: {
     input.plazaFarFactor
   );
   const waterBonus = input.waterfront ? input.waterfrontBonus : 1;
+  const outsideWallsFactor = input.outsideWallsFactor ?? 1;
   const price = Math.round(
-    input.basePerBlock2 * area * frontageFactor * plazaFactor * waterBonus
+    input.basePerBlock2 *
+      area *
+      frontageFactor *
+      plazaFactor *
+      waterBonus *
+      outsideWallsFactor
   );
   const factors: ParcelPriceFactors = {
     basePerBlock2: input.basePerBlock2,
@@ -96,18 +104,19 @@ export function computeParcelPrice(input: {
     plazaDistanceFactor: plazaFactor,
     waterfront: input.waterfront,
     waterfrontBonus: waterBonus,
+    outsideWallsFactor,
   };
-  return {
-    factors,
-    price,
-    lines: [
-      `Base ${input.basePerBlock2} × ${area} blocks`,
-      `Frontage (${input.frontageKind}) ×${frontageFactor}`,
-      `Plaza distance ${Math.round(input.plazaDistance)} ×${plazaFactor.toFixed(2)}`,
-      `Waterfront ×${waterBonus}`,
-      `Total ${price} merids`,
-    ],
-  };
+  const lines = [
+    `Base ${input.basePerBlock2} × ${area} blocks`,
+    `Frontage (${input.frontageKind}) ×${frontageFactor}`,
+    `Plaza distance ${Math.round(input.plazaDistance)} ×${plazaFactor.toFixed(2)}`,
+    `Waterfront ×${waterBonus}`,
+  ];
+  if (outsideWallsFactor !== 1) {
+    lines.push(`Outside walls ×${outsideWallsFactor}`);
+  }
+  lines.push(`Total ${price} merids`);
+  return { factors, price, lines };
 }
 
 export function parcelsAdjacent(a: ParcelBounds, b: ParcelBounds): boolean {

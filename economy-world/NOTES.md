@@ -120,6 +120,13 @@ Built against `docs/layer1-technical-spec.md` §4.7–§7 and the master design.
 - **Survey Floor:** `ew:dev surveyfloor [layoutRef]` stamps a standalone mosaic for testing; stand → actionbar summary; use → buy/owner/merge. Office-hosted floor activates when a `real_estate_L1` capture + `surveyFloor` zone land.
 - **Tests:** `test/townGeneration.test.ts` — modes/idempotency keys, empty-on-missing, pricing factors, buy+merge+audit, slope refusal, stub connectivity, Survey Floor mapping.
 
+### Town-generation Phase 5 — town expansion
+- **Growth points:** Layout 01 `growthPoints` register on the town record at seed (world-transformed). Consuming a point retires it; the module's own dead-ends register as new growth points.
+- **District modules:** `data/district-modules.json` + `docs/district-modules.md` — `residential_close` (curving 3-wide lane, 6 houses + spare + green) and `industrial_yard` (short lane to 34×28 work pad + 2 spares). Modules join at the growth point's local street angle; the old dead-end becomes a through-road.
+- **Town Hall flow:** leader-only `Expand the town` (`ew:dev expand [townRef]` until a town-hall capture hosts it) → pick growth point → terrain-fit modules with ★ recommendation (vacant house parcels < 25% → residential, else industrial) → treasury debit `moduleArea × basePerBlock² × outsideWallsDiscount` (⚑ 0.7; graceful shortfall) → road paves outward first on the construction timer, then parcels register with hedges/meadow.
+- **Integration:** expanded parcels use the same registry/pricing/buy/merge; Survey Floor rescales on next `surveyfloor`; reseeding the same anchor preserves expansions (no orphan/duplicate).
+- **Tests:** `test/townExpansion.test.ts` — growth transform/retire/spawn, join angle + through-road, treasury+audit, terrain refuse, outside-walls parcel pricing, recommendation star, reseed preserve.
+
 ## Dev commands
 
 Run `/scriptevent ew:dev help` in-game for this same grouped list.
@@ -164,6 +171,7 @@ Run `/scriptevent ew:dev help` in-game for this same grouped list.
 - `/scriptevent ew:dev pitinfo` — standing in a pad: business, zone bounds, clocked-in list, regen state/timer
 - `/scriptevent ew:dev seedtown <survey|skeleton|full> [layoutId]` — seed Heartlands Crossroads (or named layout) at your position
 - `/scriptevent ew:dev surveyfloor [layoutRef]` — stamp a standalone Survey Floor mapped to a seeded town
+- `/scriptevent ew:dev expand [townRef]` — Town Hall expansion flow (growth point → module → treasury confirm)
 
 NPC/entity tags: `ew:npc_bank`, `ew:npc_dealer`, `ew:npc_commons`, `ew:npc_jobs`, `ew:shop_<trade>`, `ew:biz_<businessId>`, `ew:owner_<trade>`, `ew:station_<trade>`, `ew:service_<trade>`, `ew:personality_<personality>`.
 
@@ -323,6 +331,12 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `town.surveyMarkers.*` | yellow/blue/red concrete | survey-mode parcel/slot/growth paints | Live | Designer walk readability only |
 | `town.retainingWallBlock` | `minecraft:cobblestone` | Pad cut retaining edges | Live | Swap for biome stone later |
 | `layouts.heartlands_crossroads.slopeToleranceY` | `6` | Site height variance refuse | Live | Re-author with steep layouts in Phase 5 |
+| `town.expansion.outsideWallsDiscount` | `0.7` | Expansion land + treasury price factor until walls exist | Live | Keep suburbs cheaper than walled core |
+| `town.expansion.startingTreasury` | `50000` | Seeded town treasury float for expansion pays | Live | Tune after first expansion playtest |
+| `town.expansion.ticksPerModuleBlock` / min/max | `0.15` / `200` / `2400` | Expansion construction duration from module area | Live | Keep road-first progress visible |
+| `town.expansion.sweepTicks` | `20` | Expansion pave/register cadence | Live | Keep engine-aligned |
+| `town.expansion.vacantHouseRecommendThreshold` | `0.25` | ★ residential when vacant house share below this | Live | Replace with demand board later |
+| `district-modules.residential_close` / `industrial_yard` | see `data/district-modules.json` | Authored expansion fragments | Live | Author more kinds in content pass |
 
 ### Dealer soften formula (Phase B, unchanged)
 ```

@@ -83,6 +83,10 @@ import {
   startSurveyFloorSystem,
 } from "./systems/surveyFloor";
 import {
+  openTownExpansionPanel,
+  startTownExpansionJob,
+} from "./systems/townExpansion";
+import {
   BUILDERS_CATALOG_ITEM,
   clearCatalogPlayerState,
   openBuilderCatalog,
@@ -269,6 +273,7 @@ function boot(): void {
   );
   startServiceJob(serviceState, bizState, employmentState);
   startSurveyFloorSystem(ledger);
+  startTownExpansionJob();
   startHudJob();
   setSuccessorSpawnHook((payload) => {
     const successor = bizState.byId[payload.successorId];
@@ -448,7 +453,8 @@ function boot(): void {
               parsed.mode,
               parsed.layoutId,
               bizState,
-              extractionState
+              extractionState,
+              ledger
             );
             world.sendMessage(
               `§a[dev] seedtown ${result.mode} ${result.layoutId} — parcels ${result.parcels}, filled ${result.filledSlots}, empty ${result.emptySlots}`
@@ -474,6 +480,11 @@ function boot(): void {
           } catch (error) {
             world.sendMessage(`§c[dev] surveyfloor failed: ${error}`);
           }
+          break;
+        }
+        case "expand": {
+          if (!player) break;
+          void openTownExpansionPanel(player, ledger, command.argument);
           break;
         }
         case "place": {

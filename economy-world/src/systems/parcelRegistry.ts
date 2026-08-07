@@ -58,6 +58,8 @@ export function registerParcel(
     plazaDistance: number;
     waterfront: boolean;
     status?: ParcelStatus;
+    outsideWallsFactor?: number;
+    idSuffix?: string;
   }
 ): ParcelRecord {
   const cfg = matrix.town.parcel;
@@ -76,8 +78,9 @@ export function registerParcel(
     plazaNearFactor: cfg.plazaNearFactor,
     plazaFarFactor: cfg.plazaFarFactor,
     waterfrontBonus: cfg.waterfrontBonus,
+    outsideWallsFactor: input.outsideWallsFactor,
   });
-  const id = `${input.townId}:p${input.index}`;
+  const id = `${input.townId}:p${input.idSuffix ?? String(input.index)}`;
   const record: ParcelRecord = {
     id,
     townId: input.townId,

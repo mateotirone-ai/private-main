@@ -196,6 +196,7 @@ describe("parcels + pricing + survey floor", () => {
     expect(breakdown.factors.frontageFactor).toBe(1.5);
     expect(breakdown.factors.plazaDistanceFactor).toBe(1.3);
     expect(breakdown.factors.waterfrontBonus).toBe(2.0);
+    expect(breakdown.factors.outsideWallsFactor).toBe(1);
   });
 
   it("registers parcels, buys with deed+ledger clean, and merges adjacent owned lots", () => {
