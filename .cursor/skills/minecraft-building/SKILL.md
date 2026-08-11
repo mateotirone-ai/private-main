@@ -1,6 +1,6 @@
 ---
 name: minecraft-building
-description: Build, import, register, validate, and test Minecraft Bedrock structures and towns in Economy World. Use when asked to create or modify a building, schematic, mcstructure, town layout, structure registry entry, placement anchor, NPC anchor, work zone, or building tier.
+description: Build, import, register, validate, and test Minecraft Bedrock structures and towns in Economy World. Use when asked to create or modify a building, schematic, mcstructure, town layout, structure registry entry, placement anchor, NPC anchor, work zone, or building tier. For professional-looking design, massing, palette, and facade craft, also use minecraft-build-craft.
 ---
 
 # Minecraft building for Economy World
@@ -8,6 +8,10 @@ description: Build, import, register, validate, and test Minecraft Bedrock struc
 Work with this repository's Bedrock structure pipeline. Do not introduce a
 Java/Paper/Mineflayer server unless the user explicitly requests a separate Java
 Edition workflow.
+
+When the task is to **design or improve how a building looks**, follow
+`.cursor/skills/minecraft-build-craft/SKILL.md` for craft, then return here for
+asset landing, registry, and validation.
 
 The add-on is under `economy-world/`. Run all `npm` commands there.
 
@@ -154,14 +158,9 @@ was not performed.
 
 ## Building quality
 
-Translate the request into a footprint, height, palette, facade rhythm,
-entrances, interior circulation, lighting, and surrounding negative space before
-authoring geometry. Reuse a small coherent material palette and reserve visual
-detail for entrances, rooflines, windows, and trade-specific landmarks.
-
-For a reference-based build, compare proportions and distinctive features
-against the reference after each visual pass. Never claim a build matches a
-reference based only on registry metadata or successful automated tests.
+Defer visual design craft to `minecraft-build-craft` (brief → massing → facade →
+interior → dress → anchors). Never claim a build matches a reference based only
+on registry metadata or successful automated tests.
 
 ## Repository rules
 
@@ -170,7 +169,7 @@ reference based only on registry metadata or successful automated tests.
 - Open forms through `safeShow`.
 - Avoid unrelated runtime or economy changes while adding structure assets.
 
-This workflow was informed by the public
-[`minecraft-builder-skill`](https://github.com/wzhaoMS/minecraft-builder-skill),
-but is adapted for this repository's Bedrock add-on and native structure
-pipeline.
+Pipeline skill for this Bedrock add-on. Design-craft adaptations of
+[wzhaoMS/minecraft-builder-skill](https://github.com/wzhaoMS/minecraft-builder-skill)
+and [mattzh72/minecraft-builder-skill](https://github.com/mattzh72/minecraft-builder-skill)
+live in `.cursor/skills/minecraft-build-craft/`.
