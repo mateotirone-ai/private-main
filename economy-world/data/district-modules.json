@@ -1,0 +1,130 @@
+{
+  "_notes": "Phase 5 district modules. Module-local coords; connection.at is the street joint that snaps to a town growth point. Polylines bend — never straighten. Two authored examples for Heartlands play.",
+  "modules": [
+    {
+      "id": "residential_close",
+      "name": "Residential Close",
+      "kind": "residential",
+      "area": [42, 34],
+      "slopeToleranceY": 5,
+      "connection": {
+        "at": [0, 16],
+        "dir": "west"
+      },
+      "streets": {
+        "lanes": [
+          {
+            "width": 3,
+            "points": [
+              [0, 16],
+              [10, 15],
+              [20, 12],
+              [30, 10],
+              [38, 9]
+            ]
+          }
+        ]
+      },
+      "growthPoints": [
+        {
+          "at": [38, 9],
+          "dir": "east",
+          "note": "close dead-end"
+        }
+      ],
+      "slots": [
+        {
+          "role": "house",
+          "pad": [4, 4, 12, 12],
+          "at": [5, 5],
+          "rot": 180
+        },
+        {
+          "role": "house",
+          "pad": [14, 3, 22, 11],
+          "at": [15, 4],
+          "rot": 180
+        },
+        {
+          "role": "house",
+          "pad": [24, 2, 32, 10],
+          "at": [25, 3],
+          "rot": 180
+        },
+        {
+          "role": "house",
+          "pad": [6, 18, 14, 26],
+          "at": [7, 19],
+          "rot": 0
+        },
+        {
+          "role": "house",
+          "pad": [16, 17, 24, 25],
+          "at": [17, 18],
+          "rot": 0
+        },
+        {
+          "role": "house",
+          "pad": [26, 16, 34, 24],
+          "at": [27, 17],
+          "rot": 0
+        },
+        {
+          "role": "parcel_empty",
+          "pad": [34, 12, 40, 20]
+        },
+        {
+          "role": "commons",
+          "pad": [18, 26, 28, 32]
+        }
+      ]
+    },
+    {
+      "id": "industrial_yard",
+      "name": "Industrial Yard",
+      "kind": "industrial",
+      "area": [48, 40],
+      "slopeToleranceY": 6,
+      "connection": {
+        "at": [0, 20],
+        "dir": "west"
+      },
+      "streets": {
+        "lanes": [
+          {
+            "width": 3,
+            "points": [
+              [0, 20],
+              [12, 19],
+              [22, 17]
+            ]
+          }
+        ]
+      },
+      "growthPoints": [
+        {
+          "at": [22, 17],
+          "dir": "east",
+          "note": "yard spur end"
+        }
+      ],
+      "slots": [
+        {
+          "role": "work_site",
+          "hint": "large-pad trade (quarry-class)",
+          "pad": [8, 2, 41, 29],
+          "at": [9, 4],
+          "rot": 0
+        },
+        {
+          "role": "parcel_empty",
+          "pad": [24, 30, 34, 38]
+        },
+        {
+          "role": "parcel_empty",
+          "pad": [36, 30, 46, 38]
+        }
+      ]
+    }
+  ]
+}
