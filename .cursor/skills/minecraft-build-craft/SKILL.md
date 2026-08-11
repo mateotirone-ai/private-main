@@ -10,7 +10,10 @@ and civic buildings for this Bedrock repo — not flat boxes, not Java megacity
 demos.
 
 For import, registry, anchors, build, and test commands, also follow
-`.cursor/skills/minecraft-building/SKILL.md`. This skill owns **design quality**.
+`.cursor/skills/minecraft-building/SKILL.md`. For pro depth/palette/roof/gradient
+rules transcribed from builder guides and tip videos, follow
+`.cursor/skills/minecraft-builder/SKILL.md` — apply those rules before emitting
+block data. This skill owns **Economy World briefing + authoring loop**.
 Do not stand up Paper/mineflayer/Lodestone unless the user explicitly asks for a
 separate Java preview workflow.
 

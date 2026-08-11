@@ -1,6 +1,6 @@
 ---
 name: minecraft-building
-description: Build, import, register, validate, and test Minecraft Bedrock structures and towns in Economy World. Use when asked to create or modify a building, schematic, mcstructure, town layout, structure registry entry, placement anchor, NPC anchor, work zone, or building tier. For professional-looking design, massing, palette, and facade craft, also use minecraft-build-craft.
+description: Build, import, register, validate, and test Minecraft Bedrock structures and towns in Economy World. Use when asked to create or modify a building, schematic, mcstructure, town layout, structure registry entry, placement anchor, NPC anchor, work zone, or building tier. For pro-quality visual design, also use minecraft-builder; for Economy World briefing, also use minecraft-build-craft.
 ---
 
 # Minecraft building for Economy World
@@ -10,8 +10,9 @@ Java/Paper/Mineflayer server unless the user explicitly requests a separate Java
 Edition workflow.
 
 When the task is to **design or improve how a building looks**, follow
-`.cursor/skills/minecraft-build-craft/SKILL.md` for craft, then return here for
-asset landing, registry, and validation.
+`.cursor/skills/minecraft-builder/SKILL.md` (pro rules + transcribed references)
+and `.cursor/skills/minecraft-build-craft/SKILL.md` (Economy World briefing),
+then return here for asset landing, registry, and validation.
 
 The add-on is under `economy-world/`. Run all `npm` commands there.
 
