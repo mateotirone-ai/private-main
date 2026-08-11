@@ -357,15 +357,15 @@ function buildHouse() {
   for (let z = roofZ0; z <= roofZ1; z++) {
     for (let step = 0; step <= 4; step++) {
       const y = 6 + step;
-      const xL = midX - 1 - step;
-      const xR = midX + 1 + step;
-      // stair faces toward outside
-      if (xL >= roofX0 - 1) {
-        set(grid, xL, y, z, block("mud_brick_stairs", { weirdo_direction: FACE.west, upside_down_bit: false }));
+      const xL = roofX0 + step;
+      const xR = roofX1 - step;
+      // Stairs ascend inward toward the ridge.
+      if (xL < midX) {
+        set(grid, xL, y, z, block("mud_brick_stairs", { weirdo_direction: FACE.east, upside_down_bit: false }));
         if (step > 0) set(grid, xL + 1, y, z, block("mud_bricks"));
       }
-      if (xR <= roofX1 + 1) {
-        set(grid, xR, y, z, block("mud_brick_stairs", { weirdo_direction: FACE.east, upside_down_bit: false }));
+      if (xR > midX) {
+        set(grid, xR, y, z, block("mud_brick_stairs", { weirdo_direction: FACE.west, upside_down_bit: false }));
         if (step > 0) set(grid, xR - 1, y, z, block("mud_bricks"));
       }
     }
@@ -501,8 +501,16 @@ function updateRegistry(padSize) {
     npcAnchors: {},
     zones: {},
   };
-  if (existing) Object.assign(existing, entry);
-  else registry.structures.push(entry);
+  let changed = false;
+  if (existing) {
+    const before = JSON.stringify(existing);
+    Object.assign(existing, entry);
+    changed = JSON.stringify(existing) !== before;
+  } else {
+    registry.structures.push(entry);
+    changed = true;
+  }
+  if (!changed) return;
   writeFileSync(REGISTRY_PATH, `${JSON.stringify(registry, null, 2)}\n`);
 }
 
