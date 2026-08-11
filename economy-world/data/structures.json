@@ -85,6 +85,17 @@
       "front": "south",
       "gateOffset": "TODO",
       "npcAnchors": {}
+    },
+    {
+      "id": "ew:home_6",
+      "trade": "home",
+      "padSize": [17, 19],
+      "anchor": "front-left-pad-corner",
+      "anchorOffset": [0, 0, 0],
+      "front": "south",
+      "gateOffset": [7, 1, 0],
+      "npcAnchors": {},
+      "zones": {}
     }
   ],
   "successorOffsetByTrade": {
