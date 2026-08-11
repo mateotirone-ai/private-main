@@ -5,8 +5,8 @@ palette for Economy World.
 
 ## Brief
 - Program: 1-bed catalog cottage (living, kitchen nook, porch)
-- Footprint: main 9×11 + south porch 5×2 (odd centers)
-- Front: south · Gate ~ `[7, 1, 0]`
+- Footprint: main 9×11 + north porch 5×2 (odd centers)
+- Front: north · Gate ~ `[7, 1, 0]`
 - Palette: sandstone/calcite · spruce timber · mud-brick roof · oxidized copper lantern posts
 
 ## Size
@@ -33,27 +33,27 @@ palette for Economy World.
 | `minecraft:dirt` | 6 |
 | `minecraft:oak_leaves` | 6 |
 | `minecraft:calcite` | 6 |
-| `minecraft:spruce_fence` | 5 |
 | `minecraft:lantern` | 5 |
+| `minecraft:spruce_fence` | 5 |
 | `minecraft:grass_path` | 4 |
 | `minecraft:cobblestone` | 4 |
 | `minecraft:poppy` | 3 |
 | `minecraft:oxidized_copper` | 3 |
-| `minecraft:spruce_door` | 2 |
 | `minecraft:bookshelf` | 2 |
-| `minecraft:spruce_stairs` | 2 |
 | `minecraft:barrel` | 2 |
-| `minecraft:white_wool` | 2 |
+| `minecraft:spruce_door` | 2 |
+| `minecraft:spruce_stairs` | 2 |
 | `minecraft:spruce_slab` | 2 |
-| `minecraft:coarse_dirt` | 1 |
-| `minecraft:gravel` | 1 |
+| `minecraft:white_wool` | 2 |
 | `minecraft:dandelion` | 1 |
-| `minecraft:chest` | 1 |
 | `minecraft:crafting_table` | 1 |
 | `minecraft:smoker` | 1 |
+| `minecraft:coarse_dirt` | 1 |
+| `minecraft:gravel` | 1 |
 | `minecraft:spruce_pressure_plate` | 1 |
-| `minecraft:white_carpet` | 1 |
 | `minecraft:campfire` | 1 |
+| `minecraft:chest` | 1 |
+| `minecraft:white_carpet` | 1 |
 
 ## Layer sheets (legend: `.` air/grass skip, letters = key blocks)
 
@@ -296,6 +296,6 @@ Key: `S` sandstone family · `P` spruce plank/log · `M` mud brick · `G` glass 
 - No NPC office/storefront (residential)
 
 ## Renders
-- Front (south): porch + gable + path + copper lantern posts
-- Back (north): chimney + twin windows + hedge
+- Front (north): porch + gable + path + copper lantern posts
+- Back (south): chimney + twin windows + hedge
 - Preview image: `docs/blueprints/home_6_preview.png`

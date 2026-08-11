@@ -12,6 +12,7 @@ import {
   placeStructureById,
 } from "./structurePlacement";
 import { resolvePlacementTransform } from "./structurePlacementMath";
+import { connectStructureToNearestRoad } from "./roadConnections";
 import { type BusinessesState } from "./businesses";
 import { type ExtractionState } from "./extraction";
 
@@ -162,6 +163,25 @@ export function tryPlaceFromCatalogTap(
       pending.mirror
     );
     feedback(player, `Placed ${entry.id}.`, "gain");
+    const road = connectStructureToNearestRoad(
+      player.dimension,
+      entry,
+      anchor,
+      { rotationSteps, mirror: pending.mirror }
+    );
+    if (road.connected) {
+      feedback(
+        player,
+        `Connected front door to road (${road.cellsPaved} path blocks).`,
+        "gain"
+      );
+    } else if (road.reason === "no_existing_road") {
+      feedback(
+        player,
+        "Building placed, but no existing town road was close enough to connect.",
+        "caution"
+      );
+    }
   }
 
   lastByPlayer.set(player.id, {

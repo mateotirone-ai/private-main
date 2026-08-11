@@ -37,6 +37,7 @@ export interface Matrix {
     maxStreetGrade: number;
     lanternInterval: number;
     stubWidth: number;
+    catalogRoadConnectMaxDistance: number;
     clearingMargin: number;
     streetTreeInterval: number;
     meadowFlowerDensity: number;

@@ -90,6 +90,7 @@ Built against `docs/layer1-technical-spec.md` §4.7–§7 and the master design.
 - Imported authoritative `docs/town-generation-spec.md` and seeded `data/structures.json` + `data/town-layouts.json`.
 - **Structure registry live:** placement resolves captured ids (`ew:stone_quarry_L1/L2/L3`) with front-face orientation and persisted `anchor + rotation + mirror`.
 - **Builder's Catalog tool:** new item `ew:builders_catalog`; use opens a 2-step placement flow (pick in form, then tap target block). Optional business registration is available for trade level-1 entries.
+- **Automatic road connection:** catalog/dev placement transforms the registry `gateOffset` with the building, finds the nearest existing seeded road in the same dimension, and paves a terrain-following 2-wide gravel stub from the front door. Connections beyond `town.catalogRoadConnectMaxDistance` warn and skip.
 - **Successor spacing:** per-trade `successorOffsetByTrade` now drives successor site placement (default and stone quarry at `40,0,0`), transformed by the source site's rotation/mirror.
 - **Role-aware office route:** office NPC tag path now routes owner -> owner panel, non-owner -> business-specific clock-in menu, clocked-in worker -> shift status/clock-out.
 - **Legacy stamp deprecation:** `/scriptevent ew:dev zone`, `/publiczone`, and legacy `seedtown` stamping are dev-gated with migration warnings; no old box/pit stamps are generated through those paths.
@@ -319,6 +320,7 @@ Pattern builders updated: `menuHub`/`confirmTxn`/`catalog`/`progressPanel` take 
 | `town.maxStreetGrade` | `3` | Max street dy before refuse/stair | Live | Match layout `slopeToleranceY` feel |
 | `town.lanternInterval` / `streetTreeInterval` | `12` / `16` | Lantern + street-tree spacing along main | Live | Keep village rhythm; avoid rows |
 | `town.stubWidth` / `clearingMargin` | `2` / `2` | Stub path width + greening clear margin | Live | Keep stubs narrow; feather margin irregular |
+| `town.catalogRoadConnectMaxDistance` | `128` | Maximum catalog/dev front-door road connection distance | Live | Prevent accidental paths across remote terrain |
 | `town.meadowFlowerDensity` | `0.08` | Empty-parcel flower noise | Live | Raise only if meadows look barren |
 | `town.floraByBiome.*` | oak/leaves + Heartlands flower set | Biome flora table for hedges/trees/meadow | Live | Expand with Timberlands/Fen tables later |
 | `town.parcel.basePerBlock2` | `5` | Parcel price base per block² | Live | Primary land-value knob |

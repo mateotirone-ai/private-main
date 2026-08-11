@@ -89,7 +89,9 @@ One entry per structure:
   registry by human name (grouped: trades / civic / homes / imports). Pick a
   building → placement mode: the next block you use the tool on is the
   target — the structure places there, front toward the player, and a
-  confirm line offers rotation (rotate 90° / mirror / undo). `ew:dev undo`
+  terrain-following 2-wide stub path is paved from its transformed
+  `gateOffset` to the nearest already-seeded town road. A confirm line offers
+  rotation (rotate 90° / mirror / undo). `ew:dev undo`
   reverses the last catalog placement (clears its volume; terrain beneath is
   not restored — intended for prepared ground). Placements via the catalog
   can optionally register a business record (toggle on the form) or place

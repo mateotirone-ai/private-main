@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allStructures,
+  structureById,
   structureForTradeLevel,
   successorOffsetForTrade,
 } from "../src/content/structures";
@@ -29,5 +30,12 @@ describe("structure registry", () => {
 
   it("reads successor spacing from per-trade config", () => {
     expect(successorOffsetForTrade("stone_quarry")).toEqual({ x: 40, y: 0, z: 0 });
+  });
+
+  it("declares the home_6 entrance on its actual north face", () => {
+    expect(structureById("ew:home_6")).toMatchObject({
+      front: "north",
+      gateOffset: { x: 7, y: 1, z: 0 },
+    });
   });
 });

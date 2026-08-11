@@ -1,7 +1,7 @@
 /**
  * Generate ew:home_6 — a buyable Construction Co. starter cottage.
  * Palette: sandstone/calcite + spruce timber + mud-brick roof + copper lanterns.
- * Front: south. Odd primary footprint. L-ish porch wing.
+ * Front: north. Odd primary footprint. L-ish porch wing.
  *
  * Usage: node tools/gen-catalog-home.mjs
  */
@@ -107,8 +107,10 @@ function buildMcstructure({ width, height, length, blocks }) {
   return nbt.writeUncompressed(root, "little");
 }
 
+// Bedrock .mcstructure block_indices are ZYX order:
+// index = z + y * sizeZ + x * sizeY * sizeZ
 function idx(x, y, z) {
-  return x + z * W + y * W * L;
+  return z + y * L + x * H * L;
 }
 
 function set(grid, x, y, z, b) {
@@ -154,7 +156,7 @@ function buildHouse() {
     mx1 = 11,
     mz0 = 4,
     mz1 = 14;
-  // Porch wing south: x=5..9 (5), z=2..3
+  // Porch wing north: x=5..9 (5), z=2..3
   const px0 = 5,
     px1 = 9,
     pz0 = 2,
@@ -162,7 +164,7 @@ function buildHouse() {
 
   // --- Ground / landscaping ---
   fill(grid, 0, 0, 0, W - 1, 0, L - 1, block("grass_block"));
-  // Path from south gate to porch (noisy)
+  // Path from north gate to porch (noisy)
   for (let z = 0; z <= 3; z++) {
     for (let x = 6; x <= 8; x++) {
       const n = hash(x, 0, z) % 5;
@@ -254,7 +256,7 @@ function buildHouse() {
   ]) {
     for (let y = 1; y <= 5; y++) set(grid, x, y, z, block("spruce_log", { pillar_axis: "y" }));
   }
-  // Mid wall pillars every ~3–4 along south/north
+  // Mid wall pillars every ~3–4 along north/south
   for (const x of [5, 7, 9]) {
     for (let y = 2; y <= 5; y++) {
       if (x === 7) continue; // door bay
@@ -266,10 +268,10 @@ function buildHouse() {
     set(grid, x, 1, mz0 - 1, block("sandstone_slab", { "minecraft:vertical_half": "bottom" }));
   }
 
-  // --- Door (south center x=7) ---
-  set(grid, 7, 2, mz0, block("spruce_door", { direction: DOOR.south, upper_block_bit: false, open_bit: false, door_hinge_bit: false }));
-  set(grid, 7, 3, mz0, block("spruce_door", { direction: DOOR.south, upper_block_bit: true, open_bit: false, door_hinge_bit: false }));
-  set(grid, 7, 4, mz0, block("sandstone_stairs", { weirdo_direction: FACE.south, upside_down_bit: true }));
+  // --- Door (north center x=7) ---
+  set(grid, 7, 2, mz0, block("spruce_door", { direction: DOOR.north, upper_block_bit: false, open_bit: false, door_hinge_bit: false }));
+  set(grid, 7, 3, mz0, block("spruce_door", { direction: DOOR.north, upper_block_bit: true, open_bit: false, door_hinge_bit: false }));
+  set(grid, 7, 4, mz0, block("sandstone_stairs", { weirdo_direction: FACE.north, upside_down_bit: true }));
   // Clear porch path through fence at door
   set(grid, 7, 2, pz0, null);
   set(grid, 7, 2, pz1, null);
@@ -290,10 +292,10 @@ function buildHouse() {
       set(grid, x + 1, 3, z, block("spruce_trapdoor", { direction: FACE.west, upside_down_bit: false, open_bit: true }));
     }
   }
-  window(5, mz0, "south");
-  window(9, mz0, "south");
-  window(5, mz1, "north");
-  window(9, mz1, "north");
+  window(5, mz0, "north");
+  window(9, mz0, "north");
+  window(5, mz1, "south");
+  window(9, mz1, "south");
   window(mx0, 8, "west");
   window(mx0, 11, "west");
   window(mx1, 8, "east");
@@ -381,9 +383,9 @@ function buildHouse() {
     set(grid, roofX1 + 1, 6, z, block("mud_brick_stairs", { weirdo_direction: FACE.west, upside_down_bit: true }));
   }
 
-  // Porch shed roof (lean-to south)
+  // Porch shed roof (lean-to north)
   for (let x = px0 - 1; x <= px1 + 1; x++) {
-    set(grid, x, 5, pz0 - 1, block("mud_brick_stairs", { weirdo_direction: FACE.south, upside_down_bit: false }));
+    set(grid, x, 5, pz0 - 1, block("mud_brick_stairs", { weirdo_direction: FACE.north, upside_down_bit: false }));
     set(grid, x, 4, pz0 - 1, block("mud_brick_stairs", { weirdo_direction: FACE.north, upside_down_bit: true }));
     set(grid, x, 5, pz1, block("mud_bricks"));
   }
@@ -393,7 +395,7 @@ function buildHouse() {
   set(grid, 9, 10, 13, block("cobblestone"));
   set(grid, 9, 9, 13, block("campfire"));
 
-  // Gate marker area (south path front)
+  // Gate marker area (north path front)
   set(grid, 6, 1, 0, block("spruce_fence"));
   set(grid, 8, 1, 0, block("spruce_fence"));
 
@@ -418,8 +420,8 @@ function writeBlueprint(grid, counts) {
   lines.push("");
   lines.push("## Brief");
   lines.push("- Program: 1-bed catalog cottage (living, kitchen nook, porch)");
-  lines.push("- Footprint: main 9×11 + south porch 5×2 (odd centers)");
-  lines.push("- Front: south · Gate ~ `[7, 1, 0]`");
+  lines.push("- Footprint: main 9×11 + north porch 5×2 (odd centers)");
+  lines.push("- Front: north · Gate ~ `[7, 1, 0]`");
   lines.push("- Palette: sandstone/calcite · spruce timber · mud-brick roof · oxidized copper lantern posts");
   lines.push("");
   lines.push("## Size");
@@ -474,8 +476,9 @@ function writeBlueprint(grid, counts) {
   lines.push("- No NPC office/storefront (residential)");
   lines.push("");
   lines.push("## Renders");
-  lines.push("- Front (south): porch + gable + path + copper lantern posts");
-  lines.push("- Back (north): chimney + twin windows + hedge");
+  lines.push("- Front (north): porch + gable + path + copper lantern posts");
+  lines.push("- Back (south): chimney + twin windows + hedge");
+  lines.push("- Preview image: `docs/blueprints/home_6_preview.png`");
   lines.push("");
 
   mkdirSync(resolve(BLUEPRINT_PATH, ".."), { recursive: true });
@@ -493,7 +496,7 @@ function updateRegistry(padSize) {
     padSize,
     anchor: "front-left-pad-corner",
     anchorOffset: [0, 0, 0],
-    front: "south",
+    front: "north",
     gateOffset: [7, 1, 0],
     npcAnchors: {},
     zones: {},

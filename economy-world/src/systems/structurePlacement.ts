@@ -31,6 +31,7 @@ import {
   pitSiteContext,
   structureOriginForSite,
 } from "./extractionPit";
+import { connectStructureToNearestRoad } from "./roadConnections";
 
 const PERSONALITY_TAGS = [
   "ew:personality_practical",
@@ -683,6 +684,25 @@ export function placeBusinessStructure(
   };
   despawnBusinessNpcs(business);
   placeStructure(dimension, entry.id, origin, rotationSteps, transform.mirror);
+  const road = connectStructureToNearestRoad(
+    dimension,
+    entry,
+    anchor,
+    { rotationSteps, mirror: transform.mirror }
+  );
+  if (road.connected) {
+    feedback(
+      player,
+      `Connected front door to road (${road.cellsPaved} path blocks).`,
+      "gain"
+    );
+  } else if (road.reason === "no_existing_road") {
+    feedback(
+      player,
+      "Building placed, but no existing town road was close enough to connect.",
+      "caution"
+    );
+  }
 
   // Volume-pit trades (work_pit boxes) mine via playerBreakBlock + authored lookup.
   // Legacy 3×3 node stamps are not registered for volume pits.

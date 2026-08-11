@@ -46,11 +46,47 @@ function applyRotation(
   return out;
 }
 
+function facingVector(facing: Cardinal): StructureOffset {
+  if (facing === "north") return { x: 0, y: 0, z: -1 };
+  if (facing === "east") return { x: 1, y: 0, z: 0 };
+  if (facing === "south") return { x: 0, y: 0, z: 1 };
+  return { x: -1, y: 0, z: 0 };
+}
+
+function vectorFacing(offset: StructureOffset): Cardinal {
+  if (offset.z < 0) return "north";
+  if (offset.x > 0) return "east";
+  if (offset.z > 0) return "south";
+  return "west";
+}
+
 export function transformOffset(
   offset: StructureOffset,
   transform: PlacementTransform
 ): StructureOffset {
   return applyRotation(applyMirror(offset, transform.mirror), transform.rotationSteps);
+}
+
+export function transformFacing(
+  facing: Cardinal,
+  transform: PlacementTransform
+): Cardinal {
+  return vectorFacing(transformOffset(facingVector(facing), transform));
+}
+
+export function resolveTargetFrontTransform(
+  structureFront: Cardinal,
+  targetFront: Cardinal,
+  mirror: StructureMirror = "none"
+): PlacementTransform {
+  const mirroredFront = transformFacing(structureFront, {
+    rotationSteps: 0,
+    mirror,
+  });
+  return {
+    rotationSteps: rotationFromFrontFace(mirroredFront, targetFront),
+    mirror,
+  };
 }
 
 export function resolvePlacementTransform(
@@ -60,8 +96,5 @@ export function resolvePlacementTransform(
 ): PlacementTransform {
   const playerFacing = facingFromYaw(playerYaw);
   const targetFront = oppositeFacing(playerFacing);
-  return {
-    rotationSteps: rotationFromFrontFace(structureFront, targetFront),
-    mirror,
-  };
+  return resolveTargetFrontTransform(structureFront, targetFront, mirror);
 }

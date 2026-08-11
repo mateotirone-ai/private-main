@@ -165,7 +165,25 @@ function nbtList(type, value) {
   return { type: "list", value: { type, value } };
 }
 
+/** Bedrock block_indices are ZYX: index = z + y*sizeZ + x*sizeY*sizeZ */
+function bedrockIndex(x, y, z, height, length) {
+  return z + y * length + x * height * length;
+}
+
+/** Sponge .schem BlockData is XZY: index = x + z*width + y*width*length */
+function schemToBedrockBlocks(blocks, width, height, length) {
+  const out = Array(width * height * length).fill(undefined);
+  for (let i = 0; i < blocks.length; i += 1) {
+    const x = i % width;
+    const z = Math.floor(i / width) % length;
+    const y = Math.floor(i / (width * length));
+    out[bedrockIndex(x, y, z, height, length)] = blocks[i];
+  }
+  return out;
+}
+
 function buildMcstructure({ width, height, length, blocks }) {
+  // `blocks` must already be in Bedrock ZYX order.
   const palette = [];
   const paletteIndex = new Map();
   const indices = [];
@@ -333,11 +351,17 @@ export async function ingestSchematics() {
       if (mapped?.substituted) report.substituted += 1;
       blocks.push(mapped);
     }
+    const bedrockBlocks = schemToBedrockBlocks(
+      blocks,
+      schem.width,
+      schem.height,
+      schem.length
+    );
     const payload = buildMcstructure({
       width: schem.width,
       height: schem.height,
       length: schem.length,
-      blocks,
+      blocks: bedrockBlocks,
     });
     writeFileSync(outPath, payload);
     const padSize = trueFootprintWithMargin(

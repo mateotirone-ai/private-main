@@ -1,7 +1,7 @@
 /**
  * Pure town-seed helpers: transforms, slot fill resolution, greening masks.
  */
-import type { StructureMirror } from "../content/structures";
+import type { Cardinal, StructureMirror } from "../content/structures";
 import {
   structureById,
   structureForTradeLevel,
@@ -12,7 +12,11 @@ import {
   type TownLayout,
 } from "../content/townLayouts";
 import type { PlacementTransform } from "./structurePlacementMath";
-import { transformOffset } from "./structurePlacementMath";
+import {
+  resolveTargetFrontTransform,
+  transformFacing,
+  transformOffset,
+} from "./structurePlacementMath";
 import type { XZ } from "./streetMath";
 
 export type SeedMode = "survey" | "skeleton" | "full";
@@ -80,6 +84,35 @@ export function slotRotationSteps(rot?: 0 | 90 | 180 | 270): 0 | 1 | 2 | 3 {
   if (rot === 180) return 2;
   if (rot === 270) return 3;
   return 0;
+}
+
+/**
+ * Slot rotation declares which way the building front faces in layout-local
+ * space: 0=north, 90=east, 180=south, 270=west.
+ */
+export function slotTargetFront(rot?: 0 | 90 | 180 | 270): Cardinal {
+  return transformFacing("north", {
+    rotationSteps: slotRotationSteps(rot),
+    mirror: "none",
+  });
+}
+
+/**
+ * Aim a structure's declared front at the slot's road-facing direction, then
+ * apply the town's rotation/mirror. This keeps mixed source orientations from
+ * placing entrances away from their roads.
+ */
+export function structureTransformForSlot(
+  structureFront: Cardinal,
+  rot: 0 | 90 | 180 | 270 | undefined,
+  layoutTransform: PlacementTransform
+): PlacementTransform {
+  const worldTargetFront = transformFacing(slotTargetFront(rot), layoutTransform);
+  return resolveTargetFrontTransform(
+    structureFront,
+    worldTargetFront,
+    layoutTransform.mirror
+  );
 }
 
 /** Map layout slot → registry structure id, or undefined if missing (slot stays empty). */

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   resolvePlacementTransform,
+  resolveTargetFrontTransform,
+  transformFacing,
   transformOffset,
 } from "../src/systems/structurePlacementMath";
 
@@ -45,5 +47,14 @@ describe("structure placement transforms", () => {
       y: 0,
       z: 9,
     });
+  });
+
+  it("keeps the declared front aimed at the target through mirrors", () => {
+    for (const mirror of ["none", "x", "z", "xz"] as const) {
+      for (const target of ["north", "east", "south", "west"] as const) {
+        const transform = resolveTargetFrontTransform("north", target, mirror);
+        expect(transformFacing("north", transform)).toBe(target);
+      }
+    }
   });
 });

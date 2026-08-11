@@ -57,8 +57,9 @@ import {
   localToWorld,
   meadowFlowerAt,
   resolveSlotStructureId,
-  slotRotationSteps,
+  slotTargetFront,
   slotShouldFillInMode,
+  structureTransformForSlot,
   townInstanceId,
   parseSeedtownArgs,
   transformPad,
@@ -70,7 +71,10 @@ import {
   type BusinessesState,
 } from "./businesses";
 import type { ExtractionState } from "./extraction";
-import type { PlacementTransform } from "./structurePlacementMath";
+import {
+  transformOffset,
+  type PlacementTransform,
+} from "./structurePlacementMath";
 
 export { parseSeedtownArgs };
 
@@ -455,15 +459,34 @@ function drawStubs(
     if (!slot.at || !slot.pad) continue;
     const entry = resolveSlotStructureId(slot);
     const structure = entry ? structureById(entry) : undefined;
-    const gateLocal = structure?.gateOffset
-      ? {
-          x: slot.at.x + structure.gateOffset.x,
-          z: slot.at.z + structure.gateOffset.z,
-        }
-      : {
-          x: slot.at.x + Math.floor((slot.pad.x2 - slot.pad.x1) / 2),
-          z: slot.rot === 180 ? slot.pad.z2 : slot.pad.z1,
-        };
+    let gateLocal: { x: number; z: number };
+    if (structure?.gateOffset) {
+      const localStructureTransform = structureTransformForSlot(
+        structure.front ?? "south",
+        slot.rot,
+        { rotationSteps: 0, mirror: "none" }
+      );
+      const gateOffset = transformOffset(
+        structure.gateOffset,
+        localStructureTransform
+      );
+      gateLocal = {
+        x: slot.at.x + gateOffset.x,
+        z: slot.at.z + gateOffset.z,
+      };
+    } else {
+      const front = slotTargetFront(slot.rot);
+      const centerX = Math.floor((slot.pad.x1 + slot.pad.x2) / 2);
+      const centerZ = Math.floor((slot.pad.z1 + slot.pad.z2) / 2);
+      gateLocal =
+        front === "north"
+          ? { x: centerX, z: slot.pad.z1 }
+          : front === "south"
+            ? { x: centerX, z: slot.pad.z2 }
+            : front === "east"
+              ? { x: slot.pad.x2, z: centerZ }
+              : { x: slot.pad.x1, z: centerZ };
+    }
     const stub = stubPathCells(gateLocal, segs, matrix.town.stubWidth);
     for (const cell of stub) {
       const world = localToWorld(cell, origin, transform);
@@ -558,18 +581,20 @@ export function seedTownMode(
           continue;
         }
         const placeAt = localToWorld(slot.at, origin, transform);
-        const slotRot = ((transform.rotationSteps +
-          slotRotationSteps(slot.rot)) %
-          4) as 0 | 1 | 2 | 3;
+        const entry = structureById(structureId);
+        const slotTransform = structureTransformForSlot(
+          entry?.front ?? "south",
+          slot.rot,
+          transform
+        );
         try {
           placeStructureById(
             dimension,
             structureId,
             { x: placeAt.x, y: placeAt.y, z: placeAt.z },
-            slotRot,
-            transform.mirror
+            slotTransform.rotationSteps,
+            slotTransform.mirror
           );
-          const entry = structureById(structureId);
           if (entry?.trade) {
             const bizId = `cpu_${entry.trade}`;
             const business = businesses.byId[bizId];
@@ -581,8 +606,8 @@ export function seedTownMode(
                   y: placeAt.y,
                   z: placeAt.z,
                 },
-                rotationSteps: slotRot,
-                mirror: transform.mirror,
+                rotationSteps: slotTransform.rotationSteps,
+                mirror: slotTransform.mirror,
               };
             }
           }

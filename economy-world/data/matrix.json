@@ -63,6 +63,7 @@
     "maxStreetGrade": 3,
     "lanternInterval": 12,
     "stubWidth": 2,
+    "catalogRoadConnectMaxDistance": 128,
     "clearingMargin": 2,
     "streetTreeInterval": 16,
     "meadowFlowerDensity": 0.08,

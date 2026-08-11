@@ -17,6 +17,10 @@ import {
   parcelsAdjacent,
 } from "../src/systems/parcelMath";
 import {
+  roadStubToNearest,
+  structureGateWorld,
+} from "../src/systems/roadConnectionMath";
+import {
   nearestPointOnSegments,
   rasterizePolyline,
   segmentsFromPolylines,
@@ -30,10 +34,13 @@ import {
 import {
   parseSeedtownArgs,
   resolveSlotStructureId,
+  slotTargetFront,
   slotShouldFillInMode,
+  structureTransformForSlot,
   surveyFloorMapping,
   townInstanceId,
 } from "../src/systems/townSeedMath";
+import { transformFacing } from "../src/systems/structurePlacementMath";
 
 describe("town layouts (Heartlands Crossroads golden fixture)", () => {
   it("loads Layout 01 with streets, slots, growth points, and slope tolerance", () => {
@@ -106,6 +113,29 @@ describe("seeding modes (pure)", () => {
     expect(slotShouldFillInMode("full", quarry)).toBe("structure");
     expect(slotShouldFillInMode("skeleton", quarry)).toBe("empty");
   });
+
+  it("aims every declared structure front toward its slot road", () => {
+    expect(slotTargetFront(0)).toBe("north");
+    expect(slotTargetFront(90)).toBe("east");
+    expect(slotTargetFront(180)).toBe("south");
+    expect(slotTargetFront(270)).toBe("west");
+
+    const layoutTransform = { rotationSteps: 1 as const, mirror: "z" as const };
+    const expectedRoadFront = transformFacing(
+      slotTargetFront(180),
+      layoutTransform
+    );
+    for (const structureFront of ["north", "east", "south", "west"] as const) {
+      const structureTransform = structureTransformForSlot(
+        structureFront,
+        180,
+        layoutTransform
+      );
+      expect(transformFacing(structureFront, structureTransform)).toBe(
+        expectedRoadFront
+      );
+    }
+  });
 });
 
 describe("streets + stubs", () => {
@@ -140,6 +170,33 @@ describe("streets + stubs", () => {
       const nearest = nearestPointOnSegments(gate, segs)!;
       expect(nearest.distance).toBeLessThan(40);
     }
+  });
+
+  it("transforms a front-door gate and connects it to the nearest road", () => {
+    const gate = structureGateWorld(
+      { x: 100, y: 64, z: 100 },
+      { x: 0, y: 0, z: 0 },
+      { x: 7, y: 1, z: 0 },
+      { rotationSteps: 2, mirror: "none" }
+    );
+    expect(gate).toEqual({ x: 93, y: 65, z: 100 });
+
+    const stub = roadStubToNearest(
+      gate,
+      [{ a: { x: 80, z: 110 }, b: { x: 110, z: 110 } }],
+      2,
+      20
+    );
+    expect(stub?.distance).toBe(10);
+    expect(stub?.cells.length).toBeGreaterThan(10);
+    expect(
+      roadStubToNearest(
+        gate,
+        [{ a: { x: 80, z: 110 }, b: { x: 110, z: 110 } }],
+        2,
+        5
+      )
+    ).toBeUndefined();
   });
 
   it("classifies street grade steps under max grade", () => {
